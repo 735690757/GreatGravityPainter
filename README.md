@@ -62,4 +62,4 @@ MIT
 
 ## 作者
 
-**刘珂瑞** (KarryLiu / 诗岸梦行舟)
+KarryLiu / 诗岸梦行舟
