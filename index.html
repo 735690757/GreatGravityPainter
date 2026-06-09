@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>刘珂瑞的神奇画板</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, 'Microsoft YaHei', 'Segoe UI', sans-serif;
+            background: #0a0e1a;
+            color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Animated background */
+        .bg-stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .bg-stars .star {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: #fff;
+            border-radius: 50%;
+            opacity: 0;
+            animation: twinkle var(--duration) ease-in-out infinite;
+            animation-delay: var(--delay);
+            transition: opacity 0.3s, transform 0.3s, box-shadow 0.3s;
+        }
+
+        @keyframes twinkle {
+
+            0%,
+            100% {
+                opacity: 0;
+            }
+
+            50% {
+                opacity: var(--max-opacity);
+            }
+        }
+
+        .bg-gradient {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(ellipse at 20% 50%, rgba(30, 60, 140, 0.15) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 50%, rgba(80, 40, 160, 0.1) 0%, transparent 60%),
+                radial-gradient(ellipse at 50% 100%, rgba(20, 80, 140, 0.12) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Content */
+        .content {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+        }
+
+        .title {
+            font-size: 42px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #7ec8ff 0%, #a78bfa 50%, #60a5fa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 2px;
+            animation: titleFloat 4s ease-in-out infinite;
+        }
+
+        @keyframes titleFloat {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-6px);
+            }
+        }
+
+        .subtitle {
+            font-size: 15px;
+            color: #6a8cbb;
+            margin-bottom: 60px;
+            letter-spacing: 1px;
+        }
+
+        /* Cards */
+        .cards {
+            display: flex;
+            gap: 40px;
+            justify-content: center;
+            align-items: stretch;
+        }
+
+        .card {
+            width: 300px;
+            padding: 40px 30px;
+            background: rgba(16, 20, 42, 0.85);
+            border: 1px solid rgba(80, 120, 220, 0.15);
+            border-radius: 20px;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            backdrop-filter: blur(10px);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 20px;
+            background: linear-gradient(135deg, transparent 0%, rgba(80, 140, 255, 0.05) 100%);
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+
+        .card::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: conic-gradient(from 0deg, transparent 0%, rgba(100, 160, 255, 0.08) 25%, transparent 50%);
+            animation: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .card:hover {
+            transform: translateY(-12px) scale(1.03);
+            border-color: rgba(100, 160, 255, 0.5);
+            box-shadow:
+                0 20px 60px rgba(40, 80, 200, 0.2),
+                0 0 40px rgba(80, 140, 255, 0.08),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .card:hover::after {
+            opacity: 1;
+            animation: cardGlow 3s linear infinite;
+        }
+
+        @keyframes cardGlow {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .card:active {
+            transform: translateY(-6px) scale(1.01);
+            transition-duration: 0.1s;
+        }
+
+        .card-icon {
+            font-size: 56px;
+            margin-bottom: 20px;
+            display: block;
+            transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .card:hover .card-icon {
+            transform: scale(1.15) rotate(-3deg);
+        }
+
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #c8e0ff;
+            transition: color 0.3s;
+        }
+
+        .card:hover .card-title {
+            color: #fff;
+        }
+
+        .card-desc {
+            font-size: 13px;
+            color: #6a8cbb;
+            line-height: 1.8;
+            transition: color 0.3s;
+        }
+
+        .card:hover .card-desc {
+            color: #8ab0d8;
+        }
+
+        .card-arrow {
+            position: absolute;
+            bottom: 20px;
+            right: 24px;
+            font-size: 20px;
+            color: rgba(100, 160, 255, 0);
+            transition: all 0.4s;
+            transform: translateX(-8px);
+        }
+
+        .card:hover .card-arrow {
+            color: rgba(100, 160, 255, 0.8);
+            transform: translateX(0);
+        }
+
+        /* Footer */
+        .footer {
+            position: fixed;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 12px;
+            color: #3a5070;
+            z-index: 1;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-gradient"></div>
+    <div class="bg-stars" id="stars"></div>
+
+    <div class="content">
+        <h1 class="title">刘珂瑞的神奇画板</h1>
+        <p class="subtitle">拖拽数据文件，即刻生成专业可视化图形</p>
+
+        <div class="cards">
+            <a class="card" href="viewer.html">
+                <span class="card-icon">🧊</span>
+                <div class="card-title">三维地质体可视化</div>
+                <div class="card-desc">
+                    加载 20×20×20 密度数据<br>
+                    体素渲染 / 剖面切割<br>
+                    支持旋转、缩放交互
+                </div>
+                <span class="card-arrow">→</span>
+            </a>
+
+            <a class="card" href="gravity2d.html">
+                <span class="card-icon">🌐</span>
+                <div class="card-title">二维重力场绘制</div>
+                <div class="card-desc">
+                    加载 41×41 重力场数据<br>
+                    色彩映射 / 等值线叠加<br>
+                    支持多种插值与配色
+                </div>
+                <span class="card-arrow">→</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="footer">
+        <span>Geophysics Visualization Toolkit！Powered by KarryLiu / Kerui Liu(诗岸梦行舟)</span>
+        <br />
+        <a href="https://github.com/735690757" style="color: #3a5070; text-decoration: underline;"
+            target="_blank">GitHub</a> |
+        <a href="https://735690757.github.io/" style="color: #3a5070; text-decoration: underline;"
+            target="_blank">诗岸梦行舟的 Blog</a>
+    </div>
+
+    <script>
+        const starsContainer = document.getElementById('stars');
+        const starCount = 200;
+        const stars = [];
+
+        for (let i = 0; i < starCount; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            const x = Math.random() * 100;
+            const y = Math.random() * 100;
+            star.style.left = x + '%';
+            star.style.top = y + '%';
+            const baseSize = 1.5 + Math.random() * 2.5;
+            star.style.width = baseSize + 'px';
+            star.style.height = baseSize + 'px';
+            star.style.setProperty('--duration', (2 + Math.random() * 4) + 's');
+            star.style.setProperty('--delay', (Math.random() * 4) + 's');
+            star.style.setProperty('--max-opacity', (0.2 + Math.random() * 0.4).toString());
+            stars.push({ el: star, x, y, threshold: 0.5 + Math.random() * 0.5 });
+            starsContainer.appendChild(star);
+        }
+
+        let mouseX = -1000, mouseY = -1000;
+        const RADIUS = 24;
+
+        document.addEventListener('mousemove', (e) => {
+            mouseX = (e.clientX / window.innerWidth) * 100;
+            mouseY = (e.clientY / window.innerHeight) * 100;
+        });
+
+        document.addEventListener('mouseleave', () => {
+            mouseX = -1000;
+            mouseY = -1000;
+        });
+
+        function updateStars() {
+            for (const s of stars) {
+                const dx = s.x - mouseX;
+                const dy = s.y - mouseY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const norm = dist / RADIUS;
+
+                if (norm < s.threshold) {
+                    const intensity = 1 - norm / s.threshold;
+                    const glow = 0.85 + intensity * 0.15;
+                    const scale = 1 + intensity * 2.5;
+                    s.el.style.opacity = glow;
+                    s.el.style.transform = `scale(${scale})`;
+                    s.el.style.boxShadow = `0 0 ${Math.round(intensity * 12)}px ${Math.round(intensity * 4)}px rgba(160,210,255,${(intensity * 0.9).toFixed(2)})`;
+                    s.el.style.background = `rgba(200,230,255,${(0.8 + intensity * 0.2).toFixed(2)})`;
+                } else {
+                    s.el.style.opacity = '';
+                    s.el.style.transform = '';
+                    s.el.style.boxShadow = '';
+                    s.el.style.background = '';
+                }
+            }
+            requestAnimationFrame(updateStars);
+        }
+        requestAnimationFrame(updateStars);
+    </script>
+</body>
+
+</html>

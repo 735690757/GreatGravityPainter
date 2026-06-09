@@ -1,0 +1,1658 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>三维地质体可视化 - 交互切割系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, 'Microsoft YaHei', 'Segoe UI', sans-serif;
+            background: #0f1021;
+            color: #e0e0e0;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        canvas#canvas {
+            display: block;
+        }
+
+        /* === File Overlay === */
+        #file-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #0d1025 0%, #151a3a 100%);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+        }
+
+        #file-toolbar {
+            background: rgba(18, 22, 48, 0.98);
+            border-bottom: 1px solid rgba(80, 120, 220, 0.15);
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        #file-toolbar h2 {
+            color: #8cc4ff;
+            font-size: 16px;
+            font-weight: 500;
+            flex: 1;
+            letter-spacing: 0.5px;
+        }
+
+        #file-toolbar .path-display {
+            font-size: 12px;
+            color: #5a9ae8;
+            background: rgba(25, 35, 65, 0.8);
+            padding: 6px 14px;
+            border-radius: 6px;
+            border: 1px solid rgba(80, 120, 220, 0.2);
+            max-width: 400px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #folder-btn {
+            padding: 8px 20px;
+            background: linear-gradient(135deg, rgba(60, 110, 220, 0.5), rgba(80, 140, 255, 0.4));
+            border: 1px solid rgba(100, 160, 255, 0.4);
+            border-radius: 8px;
+            color: #b8d8ff;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.25s;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+
+        #folder-btn:hover {
+            background: linear-gradient(135deg, rgba(70, 120, 240, 0.6), rgba(90, 160, 255, 0.5));
+            border-color: #7eb8ff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(60, 120, 255, 0.25);
+        }
+
+        #file-hint {
+            text-align: center;
+            color: #5a7eaa;
+            font-size: 14px;
+            padding: 80px 20px;
+            line-height: 2;
+        }
+
+        #file-hint .big-icon {
+            font-size: 56px;
+            margin-bottom: 20px;
+            display: block;
+            opacity: 0.7;
+        }
+
+        #file-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 16px;
+        }
+
+        .file-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .file-table th {
+            text-align: left;
+            padding: 10px 16px;
+            font-size: 11px;
+            color: #5578a0;
+            border-bottom: 1px solid rgba(80, 120, 220, 0.12);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+            background: rgba(13, 16, 37, 0.98);
+        }
+
+        .file-table td {
+            padding: 0;
+            font-size: 13px;
+            border-bottom: 1px solid rgba(80, 120, 220, 0.06);
+        }
+
+        .file-row {
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .file-row td {
+            padding: 12px 16px;
+        }
+
+        .file-row:hover {
+            background: rgba(50, 80, 180, 0.2);
+        }
+
+        .file-row:active {
+            background: rgba(50, 80, 180, 0.35);
+        }
+
+        .file-row .fname {
+            color: #c0dcf8;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 400;
+        }
+
+        .file-row .fname .icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, rgba(50, 90, 180, 0.3), rgba(70, 120, 220, 0.2));
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            flex-shrink: 0;
+            border: 1px solid rgba(80, 120, 220, 0.15);
+        }
+
+        .file-row .fsize {
+            color: #5578a0;
+            font-size: 12px;
+        }
+
+        .file-row .fdate {
+            color: #5578a0;
+            font-size: 12px;
+        }
+
+        #drop-zone {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(20, 40, 100, 0.9);
+            z-index: 10;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+
+        #drop-zone-inner {
+            padding: 50px 70px;
+            border: 3px dashed rgba(130, 190, 255, 0.6);
+            border-radius: 20px;
+            font-size: 22px;
+            color: #b8dcff;
+            letter-spacing: 1px;
+        }
+
+        #file-overlay.drag-over #drop-zone {
+            display: flex;
+        }
+
+        #container.drag-over-global::after {
+            content: '松开加载新数据文件';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 35, 90, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            color: #b8dcff;
+            z-index: 500;
+            border: 3px dashed rgba(130, 190, 255, 0.5);
+            pointer-events: none;
+            backdrop-filter: blur(3px);
+            letter-spacing: 1px;
+        }
+
+        /* === Controls Panel === */
+        #controls {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(14, 17, 38, 0.94);
+            border: 1px solid rgba(70, 110, 200, 0.2);
+            border-radius: 14px;
+            padding: 22px;
+            width: 280px;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            max-height: calc(100vh - 32px);
+            overflow-y: auto;
+            display: none;
+            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s;
+        }
+
+        #controls.collapsed {
+            transform: translateX(calc(100% + 16px));
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #btn-toggle-panel {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 32px;
+            height: 32px;
+            background: rgba(14, 17, 38, 0.94);
+            border: 1px solid rgba(70, 110, 200, 0.3);
+            border-radius: 8px;
+            color: #8ab8e8;
+            font-size: 16px;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            transition: all 0.25s;
+            backdrop-filter: blur(8px);
+        }
+
+        #btn-toggle-panel:hover {
+            background: rgba(40, 60, 120, 0.7);
+            border-color: #7eb8ff;
+            box-shadow: 0 4px 12px rgba(60, 120, 255, 0.2);
+        }
+
+        #controls h2 {
+            font-size: 14px;
+            margin-bottom: 18px;
+            color: #8cc4ff;
+            border-bottom: 1px solid rgba(70, 110, 200, 0.15);
+            padding-bottom: 10px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+
+        .ctrl-group {
+            margin-bottom: 16px;
+        }
+
+        .ctrl-group label {
+            display: block;
+            font-size: 11px;
+            color: #7a9dc0;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .ctrl-group input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: #4488ee;
+            height: 4px;
+        }
+
+        .ctrl-group .value-display {
+            font-size: 11px;
+            color: #5a9ae8;
+            float: right;
+            margin-top: -18px;
+            font-weight: 600;
+        }
+
+        .ctrl-group select {
+            width: 100%;
+            background: rgba(20, 28, 55, 0.9);
+            border: 1px solid rgba(70, 110, 200, 0.25);
+            color: #c0d8f0;
+            padding: 7px 11px;
+            border-radius: 7px;
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .ctrl-group select:focus {
+            border-color: rgba(80, 140, 255, 0.5);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 7px 13px;
+            background: rgba(40, 60, 120, 0.35);
+            border: 1px solid rgba(70, 110, 200, 0.3);
+            color: #8ab8e8;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .btn:hover {
+            background: rgba(50, 80, 160, 0.45);
+            border-color: rgba(90, 140, 240, 0.5);
+        }
+
+        .btn.active {
+            background: linear-gradient(135deg, rgba(50, 90, 200, 0.5), rgba(70, 120, 240, 0.4));
+            border-color: rgba(100, 160, 255, 0.6);
+            color: #b8dcff;
+            box-shadow: 0 2px 8px rgba(50, 100, 220, 0.2);
+        }
+
+        /* === Info Bar === */
+        #info {
+            position: absolute;
+            bottom: 16px;
+            left: 18%;
+            transform: translateX(-50%);
+            background: rgba(14, 17, 38, 0.88);
+            border: 1px solid rgba(70, 110, 200, 0.15);
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-size: 11px;
+            color: #6a94c0;
+            display: none;
+            backdrop-filter: blur(8px);
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        /* === 2D Slice Inset === */
+        #slice2d-container {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            background: rgba(14, 17, 38, 0.94);
+            border: 1px solid rgba(70, 110, 200, 0.25);
+            border-radius: 12px;
+            padding: 10px;
+            display: none;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        #slice2d-title {
+            font-size: 11px;
+            color: #7a9dc0;
+            text-align: center;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        #slice2d {
+            display: block;
+            border-radius: 4px;
+            image-rendering: pixelated;
+        }
+
+        #slice2d-body {
+            display: flex;
+            align-items: stretch;
+            gap: 8px;
+        }
+
+        #slice2d-cb-wrap {
+            display: flex;
+            gap: 4px;
+        }
+
+        #slice2d-cb {
+            border-radius: 3px;
+            display: block;
+        }
+
+        #slice2d-cb-labels {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-size: 9px;
+            color: #6a94c0;
+            padding: 2px 0;
+        }
+
+        /* === Colorbar === */
+        #colorbar {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 18px;
+            height: 220px;
+            border-radius: 9px;
+            border: 1px solid rgba(70, 110, 200, 0.25);
+            display: none;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        #colorbar-labels {
+            position: absolute;
+            left: 42px;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 220px;
+            display: none;
+            flex-direction: column;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #6a94c0;
+            font-weight: 500;
+        }
+
+        /* === Back Button === */
+        .back-btn-3d {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            padding: 8px 16px;
+            background: rgba(40, 60, 120, 0.6);
+            border: 1px solid rgba(80, 140, 255, 0.35);
+            border-radius: 8px;
+            color: #b8d8ff;
+            font-size: 13px;
+            cursor: pointer;
+            z-index: 100;
+            transition: all 0.25s;
+            font-weight: 500;
+            text-decoration: none;
+            display: none;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(8px);
+        }
+
+        .back-btn-3d:hover {
+            background: rgba(50, 80, 160, 0.7);
+            border-color: #7eb8ff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(60, 120, 255, 0.25);
+        }
+
+        .back-btn-toolbar {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, rgba(60, 110, 220, 0.5), rgba(80, 140, 255, 0.4));
+            border: 1px solid rgba(100, 160, 255, 0.4);
+            border-radius: 8px;
+            color: #b8d8ff;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.25s;
+            font-weight: 500;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .back-btn-toolbar:hover {
+            background: linear-gradient(135deg, rgba(70, 120, 240, 0.6), rgba(90, 160, 255, 0.5));
+            border-color: #7eb8ff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(60, 120, 255, 0.25);
+        }
+
+        /* === Tooltip === */
+        #voxel-tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: rgba(10, 14, 30, 0.92);
+            border: 1px solid rgba(80, 140, 255, 0.4);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: #c0dcf8;
+            display: none;
+            z-index: 100;
+            backdrop-filter: blur(6px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+            white-space: nowrap;
+            line-height: 1.6;
+        }
+
+        #voxel-tooltip .tt-label {
+            color: #7a9dc0;
+            font-size: 10px;
+            margin-right: 6px;
+        }
+
+        #voxel-tooltip .tt-value {
+            color: #8cc4ff;
+            font-weight: 600;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(70, 110, 200, 0.3);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(80, 130, 240, 0.4);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="container">
+        <a id="btn-back-index" class="back-btn-3d" href="index.html">← 返回首页</a>
+        <canvas id="canvas"></canvas>
+
+        <div id="file-overlay">
+            <div id="file-toolbar">
+                <a class="back-btn-toolbar" href="index.html">← 返回首页</a>
+                <h2>瑞瑞的三维地质体可视化鸭</h2>
+                <span class="path-display" id="path-display">未选择文件夹</span>
+                <button id="folder-btn">打开文件夹</button>
+            </div>
+            <div id="file-list">
+                <div id="file-hint">
+                    <span class="big-icon">📂</span>
+                    点击右上角「打开文件夹」选择数据目录<br>
+                    或直接将 .txt 文件拖拽到此处
+                </div>
+            </div>
+            <div id="drop-zone">
+                <div id="drop-zone-inner">📥 松开鼠标加载文件</div>
+            </div>
+        </div>
+
+        <canvas id="colorbar" width="18" height="220"></canvas>
+        <div id="colorbar-labels">
+            <span id="cb-max">+1</span>
+            <span id="cb-mid">0</span>
+            <span id="cb-min">-1</span>
+        </div>
+        <button id="btn-toggle-panel" title="展开控制面板">◀</button>
+        <div id="controls">
+            <h2 style="display:flex;align-items:center;justify-content:space-between">可视化控制面板
+                <button class="btn" id="btn-collapse-panel" style="padding:4px 8px;font-size:12px" title="收起面板">▶</button>
+            </h2>
+
+            <div class="ctrl-group">
+                <label>当前文件: <span id="current-file" style="color:#7eb8ff"></span></label>
+            </div>
+
+            <div class="ctrl-group">
+                <label>显示模式</label>
+                <div class="btn-row">
+                    <button class="btn active" id="btn-volume">体素</button>
+                    <button class="btn" id="btn-slice">剖面</button>
+                </div>
+            </div>
+
+            <div class="ctrl-group">
+                <label>整体透明度 <span class="value-display" id="val-opacity">0.85</span></label>
+                <input type="range" id="slider-opacity" min="0.1" max="1" step="0.05" value="0.85">
+            </div>
+
+            <div class="ctrl-group">
+                <label>密度阈值 (过滤绝对值低于此值的体素) <span class="value-display" id="val-threshold">0.10</span></label>
+                <input type="range" id="slider-threshold" min="0" max="1" step="0.01" value="0.10">
+            </div>
+
+
+            <div class="ctrl-group" id="slice-controls" style="display:none">
+                <label>剖面方向</label>
+                <select id="slice-axis">
+                    <option value="x">X 轴 (东西向)</option>
+                    <option value="y">Y 轴 (南北向)</option>
+                    <option value="z">Z 轴 (深度, 竖直)</option>
+                </select>
+                <label style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">镜头跟随
+                    <button class="btn active" id="btn-cam-follow" style="margin-left:auto;padding:5px 10px">开</button>
+                </label>
+                <label style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">剖面位置 <span
+                        class="value-display" id="val-slice" style="float:none;margin-top:0">10</span></label>
+                <input type="range" id="slider-slice" min="0" max="19" step="1" value="10">
+            </div>
+
+            <div class="ctrl-group">
+                <label>颜色方案</label>
+                <select id="colormap">
+                    <option value="jet">Jet (经典)</option>
+                    <option value="viridis">Viridis</option>
+                    <option value="hot">Hot (热力)</option>
+                    <option value="cool">Cool (冷色)</option>
+                </select>
+            </div>
+
+            <div class="ctrl-group">
+                <label style="display:flex;justify-content:space-between;align-items:center">真实距离 (米)
+                    <button class="btn" id="btn-real-units" style="margin-left:auto;padding:5px 10px">关</button>
+                </label>
+            </div>
+
+            <div class="ctrl-group">
+                <label>操作</label>
+                <div class="btn-row">
+                    <button class="btn" id="btn-reset">重置视角</button>
+                    <button class="btn active" id="btn-axes">坐标轴</button>
+                    <button class="btn active" id="btn-labels">XYZ标签</button>
+                    <button class="btn active" id="btn-bbox">边框</button>
+                    <button class="btn" id="btn-reload">重新选文件</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="info">
+            鼠标左键拖拽旋转 | 滚轮缩放 | 右键平移<br>
+            <span id="info-data"></span>
+        </div>
+
+        <div id="voxel-tooltip"></div>
+
+        <div id="slice2d-container">
+            <div id="slice2d-title">剖面 2D 视图</div>
+            <div id="slice2d-body">
+                <canvas id="slice2d" width="200" height="200"></canvas>
+                <div id="slice2d-cb-wrap">
+                    <canvas id="slice2d-cb" width="14" height="200"></canvas>
+                    <div id="slice2d-cb-labels">
+                        <span>+1</span>
+                        <span>0</span>
+                        <span>-1</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+{
+    "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+}
+</script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        const NX = 20, NY = 20, NZ = 20;
+        let densityData = new Float32Array(NX * NY * NZ);
+        let dataLoaded = false;
+        const DATA_MIN = -1.0, DATA_MAX = 1.0;
+
+        let folderHandle = null;
+        let fileHandles = [];
+
+        function getIndex(x, y, z) {
+            return x * NY * NZ + y * NZ + z;
+        }
+
+        // Data(x,y,z) -> Render(y, NZ-1-z, x): Z is vertical, 0 at top, increasing downward
+        function toRenderPos(x, y, z) {
+            return [y, NZ - 1 - z, x];
+        }
+
+        // === Colormaps (t: 0=DATA_MIN=-1, 1=DATA_MAX=+1) ===
+        const colormaps = {
+            jet: (t) => {
+                // Blue(0) -> Cyan(0.25) -> Green(0.5) -> Yellow(0.75) -> Red(1)
+                let r, g, b;
+                if (t < 0.125) {
+                    r = 0; g = 0; b = 0.5 + t * 4;
+                } else if (t < 0.375) {
+                    r = 0; g = (t - 0.125) * 4; b = 1;
+                } else if (t < 0.625) {
+                    r = (t - 0.375) * 4; g = 1; b = 1 - (t - 0.375) * 4;
+                } else if (t < 0.875) {
+                    r = 1; g = 1 - (t - 0.625) * 4; b = 0;
+                } else {
+                    r = 1 - (t - 0.875) * 2; g = 0; b = 0;
+                }
+                return [Math.min(1, Math.max(0, r)), Math.min(1, Math.max(0, g)), Math.min(1, Math.max(0, b))];
+            },
+            viridis: (t) => {
+                const r = 0.267 + 0.003 * t + t * t * (0.3 + 0.4 * t);
+                const g = 0.004 + t * (0.87 - 0.35 * t);
+                const b = 0.329 + 0.42 * t - 0.8 * t * t + 0.5 * t * t * t;
+                return [Math.min(1, r), Math.min(1, g), Math.min(1, Math.max(0, b))];
+            },
+            hot: (t) => {
+                return [Math.min(1, t * 2.5), Math.min(1, Math.max(0, t * 2.5 - 1)), Math.min(1, Math.max(0, t * 5 - 4))];
+            },
+            cool: (t) => {
+                return [t, 1 - t, 1];
+            }
+        };
+
+        function getColor(value, cmapName) {
+            let t = (value - DATA_MIN) / (DATA_MAX - DATA_MIN);
+            t = Math.max(0, Math.min(1, t));
+            return colormaps[cmapName](t);
+        }
+
+        // === Scene setup ===
+        const canvas = document.getElementById('canvas');
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setClearColor(0x0f1021);
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(35, 30, 35);
+
+        const controls = new OrbitControls(camera, canvas);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.target.set(10, 10, 10);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+        dirLight.position.set(30, 40, 30);
+        scene.add(dirLight);
+        const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
+        dirLight2.position.set(-20, -10, -20);
+        scene.add(dirLight2);
+
+        let volumeGroup = new THREE.Group();
+        let sliceGroup = new THREE.Group();
+        let axesGroup = new THREE.Group();
+        let bboxGroup = new THREE.Group();
+        let labelsGroup = new THREE.Group();
+        scene.add(volumeGroup);
+        scene.add(sliceGroup);
+        scene.add(axesGroup);
+        scene.add(bboxGroup);
+        scene.add(labelsGroup);
+
+        // === State ===
+        let currentMode = 'volume';
+        let showAxes = true;
+        let showBbox = true;
+        let showLabels = true;
+        let opacity = 0.85;
+        let threshold = 0.10;
+        let sliceAxis = 'x';
+        let slicePos = 10;
+        let cmapName = 'jet';
+        let camFollow = true;
+        let useRealUnits = false;
+        const CELL_SIZE = 200; // 每格200米，20格=4000米
+
+        // === Build volume: solid cubes ===
+        function buildVolume() {
+            volumeGroup.clear();
+
+            const positions = [];
+            const colorValues = [];
+
+            for (let x = 0; x < NX; x++) {
+                for (let y = 0; y < NY; y++) {
+                    for (let z = 0; z < NZ; z++) {
+                        const val = densityData[getIndex(x, y, z)];
+                        if (Math.abs(val) < threshold) continue;
+                        const [rx, ry, rz] = toRenderPos(x, y, z);
+                        positions.push(rx, ry, rz);
+                        const [r, g, b] = getColor(val, cmapName);
+                        colorValues.push(r, g, b);
+                    }
+                }
+            }
+
+            if (positions.length === 0) return;
+
+            const count = positions.length / 3;
+            const boxGeo = new THREE.BoxGeometry(0.95, 0.95, 0.95);
+            const material = new THREE.MeshPhongMaterial({
+                transparent: opacity < 1.0,
+                opacity: opacity,
+                side: THREE.FrontSide,
+                flatShading: true
+            });
+
+            const instMesh = new THREE.InstancedMesh(boxGeo, material, count);
+            const dummy = new THREE.Object3D();
+            const color = new THREE.Color();
+
+            for (let i = 0; i < count; i++) {
+                dummy.position.set(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
+                dummy.updateMatrix();
+                instMesh.setMatrixAt(i, dummy.matrix);
+                color.setRGB(colorValues[i * 3], colorValues[i * 3 + 1], colorValues[i * 3 + 2]);
+                instMesh.setColorAt(i, color);
+            }
+
+            instMesh.instanceMatrix.needsUpdate = true;
+            instMesh.instanceColor.needsUpdate = true;
+            volumeGroup.add(instMesh);
+
+            // Black edges for each voxel
+            const edgesGeo = new THREE.EdgesGeometry(boxGeo);
+            const edgeMat = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 1 });
+            for (let i = 0; i < count; i++) {
+                const line = new THREE.LineSegments(edgesGeo, edgeMat);
+                line.position.set(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
+                volumeGroup.add(line);
+            }
+        }
+
+        // === Build isosurface (Marching Cubes) ===
+        // === Build slice plane ===
+        function buildSlice() {
+            sliceGroup.clear();
+
+            const axisIdx = sliceAxis === 'x' ? 0 : sliceAxis === 'y' ? 1 : 2;
+            const planeGroup = new THREE.Group();
+
+            for (let i = 0; i < 20; i++) {
+                for (let j = 0; j < 20; j++) {
+                    let x, y, z;
+                    if (axisIdx === 0) { x = slicePos; y = i; z = j; }
+                    else if (axisIdx === 1) { y = slicePos; x = i; z = j; }
+                    else { z = slicePos; x = i; y = j; }
+
+                    const val = densityData[getIndex(x, y, z)];
+                    const [r, g, b] = getColor(val, cmapName);
+
+                    const mat = new THREE.MeshBasicMaterial({
+                        color: new THREE.Color(r, g, b),
+                        side: THREE.DoubleSide
+                    });
+                    // PlaneGeometry default: lies in XY plane, normal along +Z
+                    const planeGeo = new THREE.PlaneGeometry(1, 1);
+                    const quad = new THREE.Mesh(planeGeo, mat);
+
+                    const [rx, ry, rz] = toRenderPos(x, y, z);
+                    quad.position.set(rx, ry, rz);
+
+                    // toRenderPos: (x,y,z) -> (y, NZ-1-z, x)
+                    // X slice: fixed data_x -> fixed render_z. Slice normal should be render Z direction.
+                    // Y slice: fixed data_y -> fixed render_x. Slice normal should be render X direction.
+                    // Z slice: fixed data_z -> fixed render_y. Slice normal should be render Y direction.
+                    if (axisIdx === 0) {
+                        // normal along render Z: rotate around Y by 90deg (so normal from +Z stays... no)
+                        // PlaneGeometry normal is +Z by default, we need it to face render Z -> no rotation needed?
+                        // Actually we need the plane to be in the XY render plane (perpendicular to Z)
+                        // Default plane is already in XY with normal +Z, so no rotation needed
+                        // But wait - X slice means plane perpendicular to render Z axis
+                        // Actually no: toRenderPos maps data_x -> render_z. So fixed data_x = fixed render_z.
+                        // The slice plane is perpendicular to render Z axis. PlaneGeometry lies in XY, normal = +Z. Correct!
+                        // no rotation needed
+                    } else if (axisIdx === 1) {
+                        // Y slice: fixed data_y -> fixed render_x. Plane perpendicular to render X.
+                        // Need normal along X. Rotate plane around Y axis by 90deg.
+                        quad.rotation.y = Math.PI / 2;
+                    } else {
+                        // Z slice: fixed data_z -> fixed render_y. Plane perpendicular to render Y.
+                        // Need normal along Y. Rotate plane around X axis by -90deg.
+                        quad.rotation.x = -Math.PI / 2;
+                    }
+                    planeGroup.add(quad);
+                }
+            }
+            sliceGroup.add(planeGroup);
+
+            let pts;
+            // toRenderPos(x,y,z) = [y, NZ-1-z, x]
+            // X slice: fixed data_x=slicePos -> fixed renderZ=slicePos
+            // Y slice: fixed data_y=slicePos -> fixed renderX=slicePos
+            // Z slice: fixed data_z=slicePos -> fixed renderY=NZ-1-slicePos
+            if (axisIdx === 0) {
+                const rz = slicePos;
+                pts = [new THREE.Vector3(-0.5, 19.5, rz), new THREE.Vector3(19.5, 19.5, rz),
+                new THREE.Vector3(19.5, -0.5, rz), new THREE.Vector3(-0.5, -0.5, rz), new THREE.Vector3(-0.5, 19.5, rz)];
+            } else if (axisIdx === 1) {
+                const rx = slicePos;
+                pts = [new THREE.Vector3(rx, 19.5, -0.5), new THREE.Vector3(rx, 19.5, 19.5),
+                new THREE.Vector3(rx, -0.5, 19.5), new THREE.Vector3(rx, -0.5, -0.5), new THREE.Vector3(rx, 19.5, -0.5)];
+            } else {
+                const ry = NZ - 1 - slicePos;
+                pts = [new THREE.Vector3(-0.5, ry, -0.5), new THREE.Vector3(19.5, ry, -0.5),
+                new THREE.Vector3(19.5, ry, 19.5), new THREE.Vector3(-0.5, ry, 19.5), new THREE.Vector3(-0.5, ry, -0.5)];
+            }
+            const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+            sliceGroup.add(new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0xffff00 })));
+
+            drawSlice2D();
+        }
+
+        // === 2D Slice Inset ===
+        function drawSlice2D() {
+            const container = document.getElementById('slice2d-container');
+            const cv = document.getElementById('slice2d');
+            const ctx = cv.getContext('2d');
+            const size = 200;
+            const cellSize = size / 20;
+
+            document.getElementById('colorbar').style.top = '40%';
+            document.getElementById('colorbar-labels').style.top = '40%';
+
+            const axisIdx = sliceAxis === 'x' ? 0 : sliceAxis === 'y' ? 1 : 2;
+            const axisLabels = axisIdx === 0 ? ['Y', 'Z'] : axisIdx === 1 ? ['X', 'Z'] : ['X', 'Y'];
+
+            document.getElementById('slice2d-title').textContent = useRealUnits
+                ? `${sliceAxis.toUpperCase()} = ${slicePos * CELL_SIZE} m 剖面 (横: ${axisLabels[0]}, 纵: ${axisLabels[1]})`
+                : `${sliceAxis.toUpperCase()} = ${slicePos} 剖面 (横: ${axisLabels[0]}, 纵: ${axisLabels[1]})`;
+
+            for (let i = 0; i < 20; i++) {
+                for (let j = 0; j < 20; j++) {
+                    let x, y, z;
+                    if (axisIdx === 0) { x = slicePos; y = i; z = j; }
+                    else if (axisIdx === 1) { y = slicePos; x = i; z = j; }
+                    else { z = slicePos; x = i; y = j; }
+
+                    const val = densityData[getIndex(x, y, z)];
+                    const [r, g, b] = getColor(val, cmapName);
+                    ctx.fillStyle = `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`;
+                    ctx.fillRect(i * cellSize, j * cellSize, cellSize, cellSize);
+                }
+            }
+
+            container.style.display = 'block';
+
+            const cbCanvas = document.getElementById('slice2d-cb');
+            const cbCtx = cbCanvas.getContext('2d');
+            const cbH = cbCanvas.height;
+            const cbW = cbCanvas.width;
+            for (let row = 0; row < cbH; row++) {
+                const t = 1 - row / (cbH - 1);
+                const [cr, cg, cb] = colormaps[cmapName](t);
+                cbCtx.fillStyle = `rgb(${Math.round(cr * 255)},${Math.round(cg * 255)},${Math.round(cb * 255)})`;
+                cbCtx.fillRect(0, row, cbW, 1);
+            }
+        }
+
+        function hideSlice2D() {
+            document.getElementById('slice2d-container').style.display = 'none';
+            document.getElementById('colorbar').style.top = '50%';
+            document.getElementById('colorbar-labels').style.top = '50%';
+        }
+
+        // === Axes ===
+        function buildAxes() {
+            axesGroup.clear();
+            if (!showAxes) return;
+
+            const axLen = 22;
+            // X=data_x (red) -> render +Z, Y=data_y (green) -> render +X, Z=data_z (blue) -> render -Y (down)
+            const axisColors = [0xff4444, 0x44ff44, 0x4444ff];
+            const axisDirs = [new THREE.Vector3(0, 0, 1), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, -1, 0)];
+
+            for (let i = 0; i < 3; i++) {
+                const points = [new THREE.Vector3(0, NZ - 1, 0), axisDirs[i].clone().multiplyScalar(axLen).add(new THREE.Vector3(0, NZ - 1, 0))];
+                const geo = new THREE.BufferGeometry().setFromPoints(points);
+                axesGroup.add(new THREE.Line(geo, new THREE.LineBasicMaterial({ color: axisColors[i] })));
+
+                const coneGeo = new THREE.ConeGeometry(0.3, 1, 8);
+                const cone = new THREE.Mesh(coneGeo, new THREE.MeshBasicMaterial({ color: axisColors[i] }));
+                cone.position.copy(axisDirs[i].clone().multiplyScalar(axLen).add(new THREE.Vector3(0, NZ - 1, 0)));
+                if (i === 0) cone.rotation.x = Math.PI / 2;
+                else if (i === 1) cone.rotation.z = -Math.PI / 2;
+                else cone.rotation.x = Math.PI;
+                axesGroup.add(cone);
+            }
+        }
+
+        // === Axis Labels (XYZ text sprites) ===
+        function makeTextSprite(text, color) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.font = 'bold 48px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = color;
+            ctx.fillText(text, 64, 32);
+            const tex = new THREE.CanvasTexture(canvas);
+            const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
+            const sprite = new THREE.Sprite(mat);
+            sprite.scale.set(4, 2, 1);
+            return sprite;
+        }
+
+        function buildLabels() {
+            labelsGroup.clear();
+            if (!showLabels) return;
+
+            const axLen = 24;
+            const origin = new THREE.Vector3(0, NZ - 1, 0);
+            const axisDirs = [new THREE.Vector3(0, 0, 1), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, -1, 0)];
+            const labels = ['X', 'Y', 'Z'];
+            const colors = ['#ff6666', '#66ff66', '#6688ff'];
+
+            for (let i = 0; i < 3; i++) {
+                const sprite = makeTextSprite(labels[i], colors[i]);
+                sprite.position.copy(axisDirs[i].clone().multiplyScalar(axLen).add(origin));
+                labelsGroup.add(sprite);
+            }
+        }
+
+        // === Bounding box ===
+        function makeTickSprite(text) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 48;
+            const ctx = canvas.getContext('2d');
+            ctx.font = '28px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#6a94c0';
+            ctx.fillText(text, 64, 24);
+            const tex = new THREE.CanvasTexture(canvas);
+            const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
+            const sprite = new THREE.Sprite(mat);
+            sprite.scale.set(3, 1.2, 1);
+            return sprite;
+        }
+
+        function buildBBox() {
+            bboxGroup.clear();
+            if (!showBbox) return;
+
+            const box = new THREE.Box3(new THREE.Vector3(-0.5, -0.5, -0.5), new THREE.Vector3(NX - 0.5, NZ - 0.5, NY - 0.5));
+            bboxGroup.add(new THREE.Box3Helper(box, 0x4466aa));
+
+            const gridGeo = new THREE.BufferGeometry();
+            const gp = [];
+            for (let i = 0; i <= 19; i += 5) {
+                gp.push(i, -0.5, -0.5, i, -0.5, 19.5);
+                gp.push(-0.5, -0.5, i, 19.5, -0.5, i);
+            }
+            gridGeo.setAttribute('position', new THREE.Float32BufferAttribute(gp, 3));
+            bboxGroup.add(new THREE.LineSegments(gridGeo, new THREE.LineBasicMaterial({ color: 0x334466, transparent: true, opacity: 0.4 })));
+
+            if (useRealUnits) {
+                const top = NZ - 0.5;
+                // Data Y axis -> render +X direction, ticks along top-front edge (y=top, z=-0.5)
+                for (let i = 0; i <= 20; i += 5) {
+                    const sprite = makeTickSprite(`${i * CELL_SIZE}`);
+                    sprite.position.set(i, top, -1.5);
+                    bboxGroup.add(sprite);
+                }
+                const yLabel = makeTickSprite('Y (m)');
+                yLabel.position.set(10, top, -3);
+                bboxGroup.add(yLabel);
+
+                // Data X axis -> render +Z direction, ticks along top-left edge (y=top, x=-0.5)
+                for (let i = 0; i <= 20; i += 5) {
+                    const sprite = makeTickSprite(`${i * CELL_SIZE}`);
+                    sprite.position.set(-1.5, top, i);
+                    bboxGroup.add(sprite);
+                }
+                const xLabel = makeTickSprite('X (m)');
+                xLabel.position.set(-3, top, 10);
+                bboxGroup.add(xLabel);
+
+                // Data Z axis (depth) -> render -Y direction, ticks along vertical edge (x=-0.5, z=-0.5)
+                for (let i = 0; i <= 20; i += 5) {
+                    const sprite = makeTickSprite(`${i * CELL_SIZE}`);
+                    sprite.position.set(-1.5, NZ - 1 - i, -0.5);
+                    bboxGroup.add(sprite);
+                }
+                const zLabel = makeTickSprite('Z (m)');
+                zLabel.position.set(-3, NZ / 2, -0.5);
+                bboxGroup.add(zLabel);
+            }
+        }
+
+        // === Colorbar (draw on canvas) ===
+        function updateColorbar() {
+            const cb = document.getElementById('colorbar');
+            const ctx = cb.getContext('2d');
+            const h = cb.height;
+            const w = cb.width;
+            for (let row = 0; row < h; row++) {
+                const t = 1 - row / (h - 1); // top=1(+1), bottom=0(-1)
+                const [r, g, b] = colormaps[cmapName](t);
+                ctx.fillStyle = `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`;
+                ctx.fillRect(0, row, w, 1);
+            }
+        }
+
+        // === Smooth transition animation ===
+        let transitionAnim = null;
+
+        function animateTransition(targetCamPos, targetTarget, duration, onComplete) {
+            if (transitionAnim) transitionAnim.cancelled = true;
+
+            const startCamPos = camera.position.clone();
+            const startTarget = controls.target.clone();
+            const startTime = performance.now();
+            const anim = { cancelled: false };
+            transitionAnim = anim;
+
+            function easeInOutCubic(t) {
+                return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+            }
+
+            function tick() {
+                if (anim.cancelled) return;
+                const elapsed = performance.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const t = easeInOutCubic(progress);
+
+                camera.position.lerpVectors(startCamPos, targetCamPos, t);
+                controls.target.lerpVectors(startTarget, targetTarget, t);
+                controls.update();
+
+                if (progress < 1) {
+                    requestAnimationFrame(tick);
+                } else {
+                    transitionAnim = null;
+                    if (onComplete) onComplete();
+                }
+            }
+            requestAnimationFrame(tick);
+        }
+
+        function animateGroupOpacity(group, fromOpacity, toOpacity, duration, onComplete) {
+            const startTime = performance.now();
+
+            function tick() {
+                const elapsed = performance.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const t = progress;
+                const currentOpacity = fromOpacity + (toOpacity - fromOpacity) * t;
+
+                group.traverse(child => {
+                    if (child.material) {
+                        child.material.transparent = true;
+                        child.material.opacity = currentOpacity;
+                    }
+                });
+
+                if (progress < 1) {
+                    requestAnimationFrame(tick);
+                } else if (onComplete) {
+                    onComplete();
+                }
+            }
+            tick();
+        }
+
+        // === Units display helper ===
+        function formatPos(index) {
+            return useRealUnits ? `${index * CELL_SIZE} m` : `${index}`;
+        }
+
+        function updateUnitsDisplay() {
+            document.getElementById('val-slice').textContent = formatPos(slicePos);
+            const filename = document.getElementById('current-file').textContent;
+            if (filename) {
+                const gridLabel = useRealUnits ? '4000m × 4000m × 4000m' : '20×20×20';
+                document.getElementById('info-data').textContent =
+                    `文件: ${filename} | 数据: ${gridLabel} | 密度范围: [-1, +1]`;
+            }
+            if (currentMode === 'slice') {
+                const axisIdx = sliceAxis === 'x' ? 0 : sliceAxis === 'y' ? 1 : 2;
+                const axisLabels = axisIdx === 0 ? ['Y', 'Z'] : axisIdx === 1 ? ['X', 'Z'] : ['X', 'Y'];
+                document.getElementById('slice2d-title').textContent = useRealUnits
+                    ? `${sliceAxis.toUpperCase()} = ${slicePos * CELL_SIZE} m 剖面 (横: ${axisLabels[0]}, 纵: ${axisLabels[1]})`
+                    : `${sliceAxis.toUpperCase()} = ${slicePos} 剖面 (横: ${axisLabels[0]}, 纵: ${axisLabels[1]})`;
+            }
+        }
+
+        // === Update scene ===
+        function updateScene() {
+            if (!dataLoaded) return;
+
+            volumeGroup.visible = currentMode === 'volume';
+            sliceGroup.visible = currentMode === 'slice';
+
+            if (currentMode === 'volume') buildVolume();
+            else if (currentMode === 'slice') buildSlice();
+
+            buildAxes();
+            buildBBox();
+            buildLabels();
+            updateColorbar();
+        }
+
+        // === Folder & file selection ===
+        async function openFolder() {
+            try {
+                folderHandle = await window.showDirectoryPicker();
+                document.getElementById('path-display').textContent = folderHandle.name;
+                await listFiles();
+            } catch (e) {
+                // user cancelled
+            }
+        }
+
+        async function listFiles() {
+            fileHandles = [];
+            const listEl = document.getElementById('file-list');
+            listEl.innerHTML = '';
+
+            for await (const entry of folderHandle.values()) {
+                if (entry.kind === 'file' && entry.name.endsWith('.txt')) {
+                    fileHandles.push(entry);
+                }
+            }
+
+            fileHandles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+
+            if (fileHandles.length === 0) {
+                listEl.innerHTML = '<div id="file-hint"><span class="big-icon">⚠️</span>该文件夹中没有 .txt 文件</div>';
+                return;
+            }
+
+            let html = '<table class="file-table"><thead><tr><th>文件名</th><th>大小</th><th>修改时间</th></tr></thead><tbody>';
+            for (const fh of fileHandles) {
+                const file = await fh.getFile();
+                const sizeKB = (file.size / 1024).toFixed(1);
+                const date = new Date(file.lastModified);
+                const dateStr = date.toLocaleDateString('zh-CN') + ' ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                html += `<tr class="file-row" data-name="${fh.name}">
+            <td><div class="fname"><span class="icon">📄</span>${fh.name}</div></td>
+            <td class="fsize">${sizeKB} KB</td>
+            <td class="fdate">${dateStr}</td>
+        </tr>`;
+            }
+            html += '</tbody></table>';
+            listEl.innerHTML = html;
+
+            listEl.querySelectorAll('.file-row').forEach(row => {
+                row.onclick = () => {
+                    const name = row.getAttribute('data-name');
+                    const fh = fileHandles.find(f => f.name === name);
+                    if (fh) loadFileHandle(fh);
+                };
+            });
+        }
+
+        async function loadFileHandle(fh) {
+            const file = await fh.getFile();
+            const text = await file.text();
+            parseData(text, fh.name);
+        }
+
+        function parseData(text, filename) {
+            const lines = text.trim().split(/\r?\n/);
+            densityData.fill(0);
+
+            let nonZeroCount = 0;
+            for (let i = 0; i < Math.min(lines.length, 8000); i++) {
+                const val = parseFloat(lines[i].trim());
+                if (!isNaN(val)) {
+                    densityData[i] = val;
+                    if (val !== 0) nonZeroCount++;
+                }
+            }
+
+            document.getElementById('current-file').textContent = filename;
+            const gridLabel = useRealUnits ? '4000m × 4000m × 4000m' : '20×20×20';
+            document.getElementById('info-data').textContent =
+                `文件: ${filename} | 数据: ${gridLabel} | 非零体素: ${nonZeroCount} | 密度范围: [-1, +1]`;
+
+            dataLoaded = true;
+            showUI();
+            updateScene();
+        }
+
+        function showUI() {
+            document.getElementById('file-overlay').style.display = 'none';
+            document.getElementById('controls').style.display = 'block';
+            document.getElementById('info').style.display = 'block';
+            document.getElementById('colorbar').style.display = 'block';
+            document.getElementById('colorbar-labels').style.display = 'flex';
+            document.getElementById('btn-back-index').style.display = 'inline-flex';
+        }
+
+        // === Controls ===
+        function setupControls() {
+            document.getElementById('folder-btn').onclick = openFolder;
+
+            // Drag and drop
+            const overlay = document.getElementById('file-overlay');
+            let dragCounter = 0;
+
+            overlay.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                dragCounter++;
+                overlay.classList.add('drag-over');
+            });
+            overlay.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+            });
+            overlay.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dragCounter--;
+                if (dragCounter <= 0) {
+                    dragCounter = 0;
+                    overlay.classList.remove('drag-over');
+                }
+            });
+            overlay.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dragCounter = 0;
+                overlay.classList.remove('drag-over');
+                const files = [...e.dataTransfer.files].filter(f => f.name.endsWith('.txt'));
+                if (files.length > 0) {
+                    const file = files[0];
+                    file.text().then(text => parseData(text, file.name));
+                }
+            });
+
+            // Global drag-and-drop: works even when viewing the 3D scene
+            const container = document.getElementById('container');
+            let globalDragCounter = 0;
+
+            container.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                globalDragCounter++;
+                container.classList.add('drag-over-global');
+            });
+            container.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+            });
+            container.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                globalDragCounter--;
+                if (globalDragCounter <= 0) {
+                    globalDragCounter = 0;
+                    container.classList.remove('drag-over-global');
+                }
+            });
+            container.addEventListener('drop', (e) => {
+                e.preventDefault();
+                globalDragCounter = 0;
+                container.classList.remove('drag-over-global');
+                const files = [...e.dataTransfer.files].filter(f => f.name.endsWith('.txt'));
+                if (files.length > 0) {
+                    const file = files[0];
+                    file.text().then(text => parseData(text, file.name));
+                }
+            });
+
+            document.getElementById('btn-volume').onclick = () => setMode('volume');
+            document.getElementById('btn-slice').onclick = () => setMode('slice');
+
+            function setMode(mode) {
+                if (mode === currentMode) return;
+                const prevMode = currentMode;
+                currentMode = mode;
+                document.getElementById('btn-volume').classList.toggle('active', mode === 'volume');
+                document.getElementById('btn-slice').classList.toggle('active', mode === 'slice');
+                document.getElementById('slice-controls').style.display = mode === 'slice' ? 'block' : 'none';
+                const infoEl = document.getElementById('info');
+                if (mode === 'slice') {
+                    infoEl.style.left = 'auto';
+                    infoEl.style.right = '16px';
+                    infoEl.style.transform = 'none';
+                } else {
+                    infoEl.style.left = '18%';
+                    infoEl.style.right = '';
+                    infoEl.style.transform = 'translateX(-50%)';
+                    hideSlice2D();
+                }
+
+                if (mode === 'slice' && prevMode === 'volume') {
+                    animateGroupOpacity(volumeGroup, opacity, 0, 400);
+                    if (camFollow) {
+                        const center = new THREE.Vector3(10, 10, 10);
+                        let targetCam;
+                        if (sliceAxis === 'x') {
+                            targetCam = new THREE.Vector3(10, 12, 38);
+                        } else if (sliceAxis === 'y') {
+                            targetCam = new THREE.Vector3(38, 12, 10);
+                        } else {
+                            targetCam = new THREE.Vector3(10, 38, 10);
+                        }
+                        animateTransition(targetCam, center, 600, () => {
+                            updateScene();
+                            animateGroupOpacity(sliceGroup, 0, 1, 400);
+                        });
+                    } else {
+                        setTimeout(() => {
+                            updateScene();
+                            animateGroupOpacity(sliceGroup, 0, 1, 400);
+                        }, 400);
+                    }
+                } else if (mode === 'volume' && prevMode === 'slice') {
+                    animateGroupOpacity(sliceGroup, 1, 0, 400);
+                    if (camFollow) {
+                        const center = new THREE.Vector3(10, 10, 10);
+                        const targetCam = new THREE.Vector3(35, 30, 35);
+                        animateTransition(targetCam, center, 600, () => {
+                            updateScene();
+                            animateGroupOpacity(volumeGroup, 0, opacity, 400);
+                        });
+                    } else {
+                        setTimeout(() => {
+                            updateScene();
+                            animateGroupOpacity(volumeGroup, 0, opacity, 400);
+                        }, 400);
+                    }
+                } else {
+                    updateScene();
+                }
+            }
+
+            document.getElementById('slider-opacity').oninput = (e) => {
+                opacity = parseFloat(e.target.value);
+                document.getElementById('val-opacity').textContent = opacity.toFixed(2);
+                updateScene();
+            };
+
+            document.getElementById('slider-threshold').oninput = (e) => {
+                threshold = parseFloat(e.target.value);
+                document.getElementById('val-threshold').textContent = threshold.toFixed(2);
+                updateScene();
+            };
+
+            document.getElementById('slice-axis').onchange = (e) => {
+                const newAxis = e.target.value;
+                if (currentMode === 'slice') {
+                    animateGroupOpacity(sliceGroup, 1, 0, 350, () => {
+                        sliceAxis = newAxis;
+                        updateScene();
+                        animateGroupOpacity(sliceGroup, 0, 1, 350);
+                    });
+                    if (camFollow) {
+                        const center = new THREE.Vector3(10, 10, 10);
+                        let targetCam;
+                        if (newAxis === 'x') {
+                            targetCam = new THREE.Vector3(10, 12, 38);
+                        } else if (newAxis === 'y') {
+                            targetCam = new THREE.Vector3(38, 12, 10);
+                        } else {
+                            targetCam = new THREE.Vector3(10, 38, 10);
+                        }
+                        animateTransition(targetCam, center, 600);
+                    }
+                } else {
+                    sliceAxis = newAxis;
+                    updateScene();
+                }
+            };
+
+            document.getElementById('btn-cam-follow').onclick = (e) => {
+                camFollow = !camFollow;
+                e.target.classList.toggle('active', camFollow);
+                e.target.textContent = camFollow ? '开' : '关';
+            };
+
+            document.getElementById('slider-slice').oninput = (e) => {
+                slicePos = parseInt(e.target.value);
+                document.getElementById('val-slice').textContent = formatPos(slicePos);
+                updateScene();
+            };
+
+            document.getElementById('colormap').onchange = (e) => {
+                cmapName = e.target.value;
+                updateScene();
+            };
+
+            document.getElementById('btn-reset').onclick = () => {
+                camera.position.set(35, 30, 35);
+                controls.target.set(10, 10, 10);
+                controls.update();
+            };
+
+            document.getElementById('btn-axes').onclick = (e) => {
+                showAxes = !showAxes;
+                e.target.classList.toggle('active', showAxes);
+                buildAxes();
+            };
+
+            document.getElementById('btn-labels').onclick = (e) => {
+                showLabels = !showLabels;
+                e.target.classList.toggle('active', showLabels);
+                buildLabels();
+            };
+
+            document.getElementById('btn-bbox').onclick = (e) => {
+                showBbox = !showBbox;
+                e.target.classList.toggle('active', showBbox);
+                buildBBox();
+            };
+
+            document.getElementById('btn-real-units').onclick = (e) => {
+                useRealUnits = !useRealUnits;
+                e.target.classList.toggle('active', useRealUnits);
+                e.target.textContent = useRealUnits ? '开' : '关';
+                updateUnitsDisplay();
+                buildBBox();
+                if (currentMode === 'slice') buildSlice();
+            };
+
+            document.getElementById('btn-reload').onclick = () => {
+                document.getElementById('file-overlay').style.display = 'flex';
+                document.getElementById('controls').style.display = 'none';
+                document.getElementById('controls').classList.remove('collapsed');
+                document.getElementById('btn-toggle-panel').style.display = 'none';
+                document.getElementById('info').style.display = 'none';
+                document.getElementById('colorbar').style.display = 'none';
+                document.getElementById('colorbar-labels').style.display = 'none';
+                document.getElementById('btn-back-index').style.display = 'none';
+                hideSlice2D();
+                if (folderHandle) listFiles();
+            };
+
+            document.getElementById('btn-collapse-panel').onclick = () => {
+                document.getElementById('controls').classList.add('collapsed');
+                document.getElementById('btn-toggle-panel').style.display = 'flex';
+            };
+
+            document.getElementById('btn-toggle-panel').onclick = () => {
+                document.getElementById('controls').classList.remove('collapsed');
+                document.getElementById('btn-toggle-panel').style.display = 'none';
+            };
+        }
+
+
+        // === Animation ===
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // === Raycaster for voxel hover tooltip ===
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const tooltip = document.getElementById('voxel-tooltip');
+        let hoveredInstanceId = -1;
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!dataLoaded || currentMode !== 'volume') {
+                tooltip.style.display = 'none';
+                return;
+            }
+
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+
+            const instMesh = volumeGroup.children.find(c => c.isInstancedMesh);
+            if (!instMesh) {
+                tooltip.style.display = 'none';
+                return;
+            }
+
+            const intersects = raycaster.intersectObject(instMesh);
+            if (intersects.length > 0) {
+                const instanceId = intersects[0].instanceId;
+                if (instanceId !== undefined) {
+                    const mat4 = new THREE.Matrix4();
+                    instMesh.getMatrixAt(instanceId, mat4);
+                    const pos = new THREE.Vector3();
+                    pos.setFromMatrixPosition(mat4);
+
+                    // Reverse toRenderPos: render(rx, ry, rz) -> data(rz, rx, NZ-1-ry)
+                    const dataX = Math.round(pos.z);
+                    const dataY = Math.round(pos.x);
+                    const dataZ = NZ - 1 - Math.round(pos.y);
+
+                    if (dataX >= 0 && dataX < NX && dataY >= 0 && dataY < NY && dataZ >= 0 && dataZ < NZ) {
+                        const val = densityData[getIndex(dataX, dataY, dataZ)];
+                        const xLabel = useRealUnits ? `${dataX * CELL_SIZE} m` : dataX;
+                        const yLabel = useRealUnits ? `${dataY * CELL_SIZE} m` : dataY;
+                        const zLabel = useRealUnits ? `${dataZ * CELL_SIZE} m` : dataZ;
+                        tooltip.innerHTML =
+                            `<span class="tt-label">X:</span><span class="tt-value">${xLabel}</span> &nbsp;` +
+                            `<span class="tt-label">Y:</span><span class="tt-value">${yLabel}</span> &nbsp;` +
+                            `<span class="tt-label">Z:</span><span class="tt-value">${zLabel}</span><br>` +
+                            `<span class="tt-label">密度:</span><span class="tt-value">${val.toFixed(4)}</span>`;
+                        tooltip.style.left = (e.clientX + 16) + 'px';
+                        tooltip.style.top = (e.clientY + 16) + 'px';
+                        tooltip.style.display = 'block';
+                    } else {
+                        tooltip.style.display = 'none';
+                    }
+                } else {
+                    tooltip.style.display = 'none';
+                }
+            } else {
+                tooltip.style.display = 'none';
+            }
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            tooltip.style.display = 'none';
+        });
+
+        setupControls();
+        animate();
+    </script>
+</body>
+
+</html>

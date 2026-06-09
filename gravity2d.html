@@ -1,0 +1,1938 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>二维重力场可视化</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, 'Microsoft YaHei', 'Segoe UI', sans-serif;
+            background: #0f1021;
+            color: #e0e0e0;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* === File Overlay === */
+        #file-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #0d1025 0%, #151a3a 100%);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+        }
+
+        #file-toolbar {
+            background: rgba(18, 22, 48, 0.98);
+            border-bottom: 1px solid rgba(80, 120, 220, 0.15);
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        #file-toolbar h2 {
+            color: #8cc4ff;
+            font-size: 16px;
+            font-weight: 500;
+            flex: 1;
+            letter-spacing: 0.5px;
+        }
+
+        #file-toolbar .path-display {
+            font-size: 12px;
+            color: #5a9ae8;
+            background: rgba(25, 35, 65, 0.8);
+            padding: 6px 14px;
+            border-radius: 6px;
+            border: 1px solid rgba(80, 120, 220, 0.2);
+            max-width: 400px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #folder-btn {
+            padding: 8px 20px;
+            background: linear-gradient(135deg, rgba(60, 110, 220, 0.5), rgba(80, 140, 255, 0.4));
+            border: 1px solid rgba(100, 160, 255, 0.4);
+            border-radius: 8px;
+            color: #b8d8ff;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.25s;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+
+        #folder-btn:hover {
+            background: linear-gradient(135deg, rgba(70, 120, 240, 0.6), rgba(90, 160, 255, 0.5));
+            border-color: #7eb8ff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(60, 120, 255, 0.25);
+        }
+
+        #file-hint {
+            text-align: center;
+            color: #5a7eaa;
+            font-size: 14px;
+            padding: 80px 20px;
+            line-height: 2;
+        }
+
+        #file-hint .big-icon {
+            font-size: 56px;
+            margin-bottom: 20px;
+            display: block;
+            opacity: 0.7;
+        }
+
+        #file-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 16px;
+        }
+
+        .file-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .file-table th {
+            text-align: left;
+            padding: 10px 16px;
+            font-size: 11px;
+            color: #5578a0;
+            border-bottom: 1px solid rgba(80, 120, 220, 0.12);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+            background: rgba(13, 16, 37, 0.98);
+        }
+
+        .file-table td {
+            padding: 0;
+            font-size: 13px;
+            border-bottom: 1px solid rgba(80, 120, 220, 0.06);
+        }
+
+        .file-row {
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .file-row td {
+            padding: 12px 16px;
+        }
+
+        .file-row:hover {
+            background: rgba(50, 80, 180, 0.2);
+        }
+
+        .file-row:active {
+            background: rgba(50, 80, 180, 0.35);
+        }
+
+        .file-row .fname {
+            color: #c0dcf8;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 400;
+        }
+
+        .file-row .fname .icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, rgba(50, 90, 180, 0.3), rgba(70, 120, 220, 0.2));
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            flex-shrink: 0;
+            border: 1px solid rgba(80, 120, 220, 0.15);
+        }
+
+        .file-row .fsize {
+            color: #5578a0;
+            font-size: 12px;
+        }
+
+        .file-row .fdate {
+            color: #5578a0;
+            font-size: 12px;
+        }
+
+        #drop-zone {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(20, 40, 100, 0.9);
+            z-index: 10;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+
+        #drop-zone-inner {
+            padding: 50px 70px;
+            border: 3px dashed rgba(130, 190, 255, 0.6);
+            border-radius: 20px;
+            font-size: 22px;
+            color: #b8dcff;
+            letter-spacing: 1px;
+        }
+
+        #file-overlay.drag-over #drop-zone {
+            display: flex;
+        }
+
+        #container.drag-over-global::after {
+            content: '\677E\5F00\52A0\8F7D\65B0\6570\636E\6587\4EF6';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 35, 90, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            color: #b8dcff;
+            z-index: 500;
+            border: 3px dashed rgba(130, 190, 255, 0.5);
+            pointer-events: none;
+            backdrop-filter: blur(3px);
+            letter-spacing: 1px;
+        }
+
+        /* === Main Canvas === */
+        #main-canvas {
+            display: none;
+            border-radius: 8px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        /* === Controls Panel === */
+        #controls {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(14, 17, 38, 0.94);
+            border: 1px solid rgba(70, 110, 200, 0.2);
+            border-radius: 14px;
+            padding: 22px;
+            width: 280px;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            max-height: calc(100vh - 32px);
+            overflow-y: auto;
+            display: none;
+        }
+
+        #controls h2 {
+            font-size: 14px;
+            margin-bottom: 18px;
+            color: #8cc4ff;
+            border-bottom: 1px solid rgba(70, 110, 200, 0.15);
+            padding-bottom: 10px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+
+        .ctrl-group {
+            margin-bottom: 16px;
+        }
+
+        .ctrl-group label {
+            display: block;
+            font-size: 11px;
+            color: #7a9dc0;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .ctrl-group input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: #4488ee;
+            height: 4px;
+        }
+
+        .ctrl-group .value-display {
+            font-size: 11px;
+            color: #5a9ae8;
+            font-weight: 600;
+            margin-left: auto;
+        }
+
+        .ctrl-group select {
+            width: 100%;
+            background: rgba(20, 28, 55, 0.9);
+            border: 1px solid rgba(70, 110, 200, 0.25);
+            color: #c0d8f0;
+            padding: 7px 11px;
+            border-radius: 7px;
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .ctrl-group select:focus {
+            border-color: rgba(80, 140, 255, 0.5);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 7px 13px;
+            background: rgba(40, 60, 120, 0.35);
+            border: 1px solid rgba(70, 110, 200, 0.3);
+            color: #8ab8e8;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .btn:hover {
+            background: rgba(50, 80, 160, 0.45);
+            border-color: rgba(90, 140, 240, 0.5);
+        }
+
+        .btn.active {
+            background: linear-gradient(135deg, rgba(50, 90, 200, 0.5), rgba(70, 120, 240, 0.4));
+            border-color: rgba(100, 160, 255, 0.6);
+            color: #b8dcff;
+            box-shadow: 0 2px 8px rgba(50, 100, 220, 0.2);
+        }
+
+        /* === Colorbar === */
+        #colorbar-container {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: none;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #colorbar {
+            width: 18px;
+            height: 260px;
+            border-radius: 9px;
+            border: 1px solid rgba(70, 110, 200, 0.25);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        #colorbar-labels {
+            height: 260px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #6a94c0;
+            font-weight: 500;
+        }
+
+        /* === Info Bar === */
+        #info {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            background: rgba(14, 17, 38, 0.88);
+            border: 1px solid rgba(70, 110, 200, 0.15);
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-size: 11px;
+            color: #6a94c0;
+            display: none;
+            backdrop-filter: blur(8px);
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        /* === Tooltip === */
+        #tooltip {
+            position: absolute;
+            display: none;
+            background: rgba(14, 17, 38, 0.95);
+            border: 1px solid rgba(80, 130, 220, 0.4);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 11px;
+            color: #c0dcf8;
+            pointer-events: none;
+            z-index: 100;
+            backdrop-filter: blur(6px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+            white-space: nowrap;
+        }
+
+        /* === Compare Panel === */
+        #compare-panel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #0a0e1a;
+            display: none;
+            flex-direction: column;
+            z-index: 900;
+            padding: 16px;
+        }
+
+        #compare-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            border-bottom: 1px solid rgba(70, 110, 200, 0.15);
+            margin-bottom: 16px;
+        }
+
+        #compare-header h2 {
+            color: #8cc4ff;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        #compare-body {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            min-height: 0;
+        }
+
+        .compare-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .compare-title {
+            font-size: 13px;
+            color: #7a9dc0;
+            font-weight: 500;
+        }
+
+        .compare-drop {
+            width: 320px;
+            height: 320px;
+            border: 2px dashed rgba(80, 120, 220, 0.3);
+            border-radius: 12px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            overflow: hidden;
+        }
+
+        .compare-drop:hover {
+            border-color: rgba(100, 160, 255, 0.5);
+            background: rgba(40, 60, 120, 0.1);
+        }
+
+        .compare-drop.drag-over {
+            border-color: rgba(100, 180, 255, 0.8);
+            background: rgba(40, 80, 180, 0.2);
+            box-shadow: 0 0 20px rgba(60, 120, 255, 0.2);
+        }
+
+        .compare-drop.loaded {
+            border-style: solid;
+            border-color: rgba(80, 120, 220, 0.25);
+        }
+
+        .compare-result {
+            border-color: rgba(120, 200, 120, 0.3);
+        }
+
+        .compare-result.loaded {
+            border-color: rgba(120, 200, 120, 0.4);
+        }
+
+        .compare-canvas {
+            width: 100%;
+            height: 100%;
+            display: none;
+            border-radius: 10px;
+            pointer-events: none;
+        }
+
+        .compare-placeholder {
+            font-size: 13px;
+            color: #5578a0;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .compare-filename {
+            font-size: 11px;
+            color: #5a9ae8;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .compare-drop .replace-hint {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(10, 14, 30, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            font-size: 13px;
+            color: #8cc4ff;
+            pointer-events: none;
+        }
+
+        .compare-drop.drag-over .replace-hint {
+            display: flex;
+        }
+
+        .compare-op {
+            font-size: 36px;
+            color: #5578a0;
+            font-weight: 300;
+            padding: 0 4px;
+        }
+
+        #compare-colorbar {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            margin-top: 12px;
+        }
+
+        #compare-cb {
+            border-radius: 7px;
+            border: 1px solid rgba(70, 110, 200, 0.2);
+        }
+
+        #compare-cb-labels {
+            display: flex;
+            justify-content: space-between;
+            width: 600px;
+            font-size: 10px;
+            color: #6a94c0;
+        }
+
+        #compare-info {
+            text-align: center;
+            font-size: 11px;
+            color: #6a94c0;
+            margin-top: 8px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(70, 110, 200, 0.3);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(80, 130, 240, 0.4);
+        }
+
+        /* === Back Button === */
+        .back-btn-3d {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            padding: 8px 16px;
+            background: rgba(40, 60, 120, 0.6);
+            border: 1px solid rgba(80, 140, 255, 0.35);
+            border-radius: 8px;
+            color: #b8d8ff;
+            font-size: 13px;
+            cursor: pointer;
+            z-index: 100;
+            transition: all 0.25s;
+            font-weight: 500;
+            text-decoration: none;
+            display: none;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(8px);
+        }
+
+        .back-btn-3d:hover {
+            background: rgba(50, 80, 160, 0.7);
+            border-color: #7eb8ff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(60, 120, 255, 0.25);
+        }
+
+        .back-btn-toolbar {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, rgba(60, 110, 220, 0.5), rgba(80, 140, 255, 0.4));
+            border: 1px solid rgba(100, 160, 255, 0.4);
+            border-radius: 8px;
+            color: #b8d8ff;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.25s;
+            font-weight: 500;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .back-btn-toolbar:hover {
+            background: linear-gradient(135deg, rgba(70, 120, 240, 0.6), rgba(90, 160, 255, 0.5));
+            border-color: #7eb8ff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(60, 120, 255, 0.25);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="container">
+        <a id="btn-back-index" class="back-btn-3d" href="index.html">← 返回首页</a>
+        <canvas id="main-canvas"></canvas>
+
+        <div id="file-overlay">
+            <div id="file-toolbar">
+                <a class="back-btn-toolbar" href="index.html">← 返回首页</a>
+                <h2>瑞瑞的二维重力场可视化鸭</h2>
+                <span class="path-display" id="path-display">未选择文件夹</span>
+                <button id="folder-btn">打开文件夹</button>
+            </div>
+            <div id="file-list">
+                <div id="file-hint">
+                    <span class="big-icon">📂</span>
+                    点击右上角「打开文件夹」选择数据目录<br>
+                    或直接将 .txt 文件拖拽到此处<br>
+                    <span style="font-size:12px;color:#4a6a8a;margin-top:10px;display:inline-block">
+                        支持格式: 每行 4 列 (x y z gravity), 共 41×41 = 1681 行
+                    </span>
+                </div>
+            </div>
+            <div id="drop-zone">
+                <div id="drop-zone-inner">📥 松开鼠标加载文件</div>
+            </div>
+        </div>
+
+        <div id="colorbar-container">
+            <canvas id="colorbar" width="18" height="260"></canvas>
+            <div id="colorbar-labels">
+                <span id="cb-max">+1</span>
+                <span id="cb-mid">0</span>
+                <span id="cb-min">-1</span>
+            </div>
+        </div>
+
+        <div id="controls">
+            <h2>重力场控制面板</h2>
+
+            <div class="ctrl-group">
+                <label>当前文件: <span id="current-file" style="color:#7eb8ff"></span></label>
+            </div>
+
+            <div class="ctrl-group">
+                <label>颜色方案</label>
+                <select id="colormap">
+                    <option value="jet">Jet (经典)</option>
+                    <option value="viridis">Viridis</option>
+                    <option value="hot">Hot (热力)</option>
+                    <option value="cool">Cool (冷色)</option>
+                    <option value="bwr">Blue-White-Red (对称)</option>
+                </select>
+            </div>
+
+            <div class="ctrl-group">
+                <label>插值模式</label>
+                <select id="interp-mode">
+                    <option value="nearest">最近邻 (块状)</option>
+                    <option value="bilinear" selected>双线性插值 (平滑)</option>
+                </select>
+            </div>
+
+            <div class="ctrl-group">
+                <label style="display:flex;justify-content:space-between;align-items:center">显示网格线
+                    <button class="btn" id="btn-grid">关</button>
+                </label>
+            </div>
+
+            <div class="ctrl-group">
+                <label style="display:flex;justify-content:space-between;align-items:center">显示等值线
+                    <button class="btn active" id="btn-contour">开</button>
+                </label>
+            </div>
+
+            <div class="ctrl-group" id="contour-level-group">
+                <label style="display:flex;justify-content:space-between;align-items:center">等值线数量 <span class="value-display" id="val-contour">10</span></label>
+                <input type="range" id="slider-contour" min="3" max="30" step="1" value="10">
+            </div>
+
+            <div class="ctrl-group">
+                <label style="display:flex;justify-content:space-between;align-items:center">显示坐标轴
+                    <button class="btn" id="btn-axes">关</button>
+                </label>
+            </div>
+
+            <div class="ctrl-group">
+                <label style="display:flex;justify-content:space-between;align-items:center">真实距离 (米)
+                    <button class="btn" id="btn-real-units">关</button>
+                </label>
+            </div>
+
+            <div class="ctrl-group">
+                <label>操作</label>
+                <div class="btn-row">
+                    <button class="btn" id="btn-reload">重新选文件</button>
+                    <button class="btn" id="btn-compare">数据对比</button>
+                    <button class="btn" id="btn-export">导出图片</button>
+                    <button class="btn" id="btn-3d">3D旋转展示</button>
+                </div>
+            </div>
+
+            <div class="ctrl-group" id="view3d-group" style="display:none">
+                <label>3D 视图控制</label>
+                <div class="btn-row">
+                    <button class="btn active" id="btn-3d-toggle">暂停旋转</button>
+                    <button class="btn" id="btn-3d-back">返回2D</button>
+                </div>
+                <div style="margin-top:10px">
+                    <label style="display:flex;justify-content:space-between;align-items:center">旋转速度
+                        <span class="value-display" id="val-speed">0.2</span>
+                    </label>
+                    <input type="range" id="slider-speed" min="0.1" max="5" step="0.1" value="0.2">
+                </div>
+                <div style="margin-top:10px">
+                    <label style="display:flex;justify-content:space-between;align-items:center">仰角
+                        <span class="value-display" id="val-elevation">65</span>
+                    </label>
+                    <input type="range" id="slider-elevation" min="5" max="80" step="1" value="65">
+                </div>
+                <div style="margin-top:10px">
+                    <label style="display:flex;justify-content:space-between;align-items:center">高度缩放
+                        <span class="value-display" id="val-zscale">1.7</span>
+                    </label>
+                    <input type="range" id="slider-zscale" min="0.2" max="3.0" step="0.1" value="1.7">
+                </div>
+            </div>
+        </div>
+
+        <!-- Comparison Panel -->
+        <div id="compare-panel">
+            <div id="compare-header">
+                <h2>残差对比: A − B = C</h2>
+                <button class="btn" id="btn-compare-back">返回单图模式</button>
+            </div>
+            <div id="compare-body">
+                <div class="compare-col">
+                    <div class="compare-title">场图 A</div>
+                    <div class="compare-drop" id="drop-a">
+                        <canvas class="compare-canvas" id="canvas-a" width="400" height="400"></canvas>
+                        <div class="compare-placeholder" id="placeholder-a">拖拽文件 A 到此处</div>
+                        <div class="replace-hint">释放以替换场图 A</div>
+                    </div>
+                    <div class="compare-filename" id="fname-a">未加载</div>
+                </div>
+                <div class="compare-op">−</div>
+                <div class="compare-col">
+                    <div class="compare-title">场图 B</div>
+                    <div class="compare-drop" id="drop-b">
+                        <canvas class="compare-canvas" id="canvas-b" width="400" height="400"></canvas>
+                        <div class="compare-placeholder" id="placeholder-b">拖拽文件 B 到此处</div>
+                        <div class="replace-hint">释放以替换场图 B</div>
+                    </div>
+                    <div class="compare-filename" id="fname-b">未加载</div>
+                </div>
+                <div class="compare-op">=</div>
+                <div class="compare-col">
+                    <div class="compare-title">残差 C (A−B)</div>
+                    <div class="compare-drop compare-result" id="result-c">
+                        <canvas class="compare-canvas" id="canvas-c" width="400" height="400"></canvas>
+                        <div class="compare-placeholder" id="placeholder-c">加载 A 和 B 后自动计算</div>
+                    </div>
+                    <div class="compare-filename" id="fname-c">—</div>
+                </div>
+            </div>
+            <div id="compare-colorbar">
+                <canvas id="compare-cb" width="600" height="14"></canvas>
+                <div id="compare-cb-labels">
+                    <span id="compare-cb-min">0</span>
+                    <span id="compare-cb-mid">0</span>
+                    <span id="compare-cb-max">0</span>
+                </div>
+            </div>
+            <div id="compare-info"></div>
+        </div>
+
+        <div id="info">
+            鼠标悬停查看数据值<br>
+            <span id="info-data"></span>
+        </div>
+
+        <div id="tooltip"></div>
+    </div>
+
+    <script>
+        const NX = 41, NY = 41;
+        let gravityData = new Float32Array(NX * NY);
+        let xCoords = new Float32Array(NX);
+        let yCoords = new Float32Array(NY);
+        let dataLoaded = false;
+        let dataMin = 0, dataMax = 1;
+
+        let folderHandle = null;
+        let fileHandles = [];
+
+        let cmapName = 'jet';
+        let interpMode = 'bilinear';
+        let showGrid = false;
+        let showContour = true;
+        let showAxes = false;
+        let contourLevels = 10;
+        let useRealUnits = false;
+
+        const CANVAS_SIZE = 600;
+        const PADDING = { top: 10, right: 30, bottom: 40, left: 50 };
+
+        const colormaps = {
+            jet: (t) => {
+                let r, g, b;
+                if (t < 0.125) { r = 0; g = 0; b = 0.5 + t * 4; }
+                else if (t < 0.375) { r = 0; g = (t - 0.125) * 4; b = 1; }
+                else if (t < 0.625) { r = (t - 0.375) * 4; g = 1; b = 1 - (t - 0.375) * 4; }
+                else if (t < 0.875) { r = 1; g = 1 - (t - 0.625) * 4; b = 0; }
+                else { r = 1 - (t - 0.875) * 2; g = 0; b = 0; }
+                return [Math.min(1, Math.max(0, r)), Math.min(1, Math.max(0, g)), Math.min(1, Math.max(0, b))];
+            },
+            viridis: (t) => {
+                const r = 0.267 + 0.003 * t + t * t * (0.3 + 0.4 * t);
+                const g = 0.004 + t * (0.87 - 0.35 * t);
+                const b = 0.329 + 0.42 * t - 0.8 * t * t + 0.5 * t * t * t;
+                return [Math.min(1, r), Math.min(1, g), Math.min(1, Math.max(0, b))];
+            },
+            hot: (t) => {
+                return [Math.min(1, t * 2.5), Math.min(1, Math.max(0, t * 2.5 - 1)), Math.min(1, Math.max(0, t * 5 - 4))];
+            },
+            cool: (t) => {
+                return [t, 1 - t, 1];
+            },
+            bwr: (t) => {
+                if (t < 0.5) {
+                    const s = t * 2;
+                    return [s, s, 1];
+                } else {
+                    const s = (t - 0.5) * 2;
+                    return [1, 1 - s, 1 - s];
+                }
+            }
+        };
+
+        function getColor(value) {
+            let t = (value - dataMin) / (dataMax - dataMin);
+            t = Math.max(0, Math.min(1, t));
+            return colormaps[cmapName](t);
+        }
+
+        function parseData(text, filename) {
+            const lines = text.trim().split(/\r?\n/);
+            gravityData = new Float32Array(NX * NY);
+
+            let minVal = Infinity, maxVal = -Infinity;
+            const xSet = new Set();
+            const ySet = new Set();
+
+            for (let i = 0; i < lines.length; i++) {
+                const parts = lines[i].trim().split(/\s+/);
+                if (parts.length < 4) continue;
+                const x = parseFloat(parts[0]);
+                const y = parseFloat(parts[1]);
+                const val = parseFloat(parts[3]);
+                if (isNaN(val)) continue;
+
+                xSet.add(x);
+                ySet.add(y);
+
+                const idx = i;
+                if (idx < NX * NY) {
+                    gravityData[idx] = val;
+                    if (val < minVal) minVal = val;
+                    if (val > maxVal) maxVal = val;
+                }
+            }
+
+            const xArr = [...xSet].sort((a, b) => a - b);
+            const yArr = [...ySet].sort((a, b) => a - b);
+            for (let i = 0; i < Math.min(xArr.length, NX); i++) xCoords[i] = xArr[i];
+            for (let i = 0; i < Math.min(yArr.length, NY); i++) yCoords[i] = yArr[i];
+
+            dataMin = minVal;
+            dataMax = maxVal;
+
+            document.getElementById('current-file').textContent = filename;
+            updateInfoBar(filename);
+
+            dataLoaded = true;
+            showUI();
+            updateColorbar();
+            drawField();
+        }
+
+        function updateInfoBar(filename) {
+            const fn = filename || document.getElementById('current-file').textContent;
+            const gridLabel = useRealUnits
+                ? `${xCoords[NX - 1]}m × ${yCoords[NY - 1]}m`
+                : `${NX}×${NY}`;
+            document.getElementById('info-data').textContent =
+                `文件: ${fn} | 网格: ${gridLabel} | 重力值范围: [${dataMin.toFixed(4)}, ${dataMax.toFixed(4)}]`;
+        }
+
+        function getValue(ix, iy) {
+            if (ix < 0 || ix >= NX || iy < 0 || iy >= NY) return 0;
+            return gravityData[iy * NX + ix];
+        }
+
+        function getBilinearValue(fx, fy) {
+            const ix = Math.floor(fx);
+            const iy = Math.floor(fy);
+            const dx = fx - ix;
+            const dy = fy - iy;
+
+            const v00 = getValue(ix, iy);
+            const v10 = getValue(ix + 1, iy);
+            const v01 = getValue(ix, iy + 1);
+            const v11 = getValue(ix + 1, iy + 1);
+
+            return v00 * (1 - dx) * (1 - dy) + v10 * dx * (1 - dy) +
+                v01 * (1 - dx) * dy + v11 * dx * dy;
+        }
+
+        function drawField() {
+            if (!dataLoaded) return;
+
+            const canvas = document.getElementById('main-canvas');
+            const ctx = canvas.getContext('2d');
+            const plotSize = CANVAS_SIZE;
+            const pad = showAxes ? PADDING : { top: 0, right: 0, bottom: 0, left: 0 };
+            const totalW = plotSize + pad.left + pad.right;
+            const totalH = plotSize + pad.top + pad.bottom;
+            canvas.width = totalW;
+            canvas.height = totalH;
+
+            ctx.fillStyle = '#0f1021';
+            ctx.fillRect(0, 0, totalW, totalH);
+
+            const imgData = ctx.createImageData(plotSize, plotSize);
+            const cellW = plotSize / NX;
+            const cellH = plotSize / NY;
+
+            for (let py = 0; py < plotSize; py++) {
+                for (let px = 0; px < plotSize; px++) {
+                    let val;
+                    if (interpMode === 'bilinear') {
+                        const fx = (px / plotSize) * (NX - 1);
+                        const fy = (py / plotSize) * (NY - 1);
+                        val = getBilinearValue(fx, fy);
+                    } else {
+                        const ix = Math.min(Math.floor(px / cellW), NX - 1);
+                        const iy = Math.min(Math.floor(py / cellH), NY - 1);
+                        val = getValue(ix, iy);
+                    }
+
+                    const [r, g, b] = getColor(val);
+                    const idx = (py * plotSize + px) * 4;
+                    imgData.data[idx] = Math.round(r * 255);
+                    imgData.data[idx + 1] = Math.round(g * 255);
+                    imgData.data[idx + 2] = Math.round(b * 255);
+                    imgData.data[idx + 3] = 255;
+                }
+            }
+
+            ctx.putImageData(imgData, pad.left, pad.top);
+
+            ctx.save();
+            ctx.translate(pad.left, pad.top);
+            if (showContour) drawContours(ctx, plotSize);
+            if (showGrid) drawGrid(ctx, plotSize);
+            ctx.restore();
+
+            if (showAxes) drawAxesTicks(ctx, plotSize, pad);
+        }
+
+        function drawContours(ctx, size) {
+            const levels = [];
+            for (let i = 0; i < contourLevels; i++) {
+                levels.push(dataMin + (dataMax - dataMin) * (i + 1) / (contourLevels + 1));
+            }
+
+            const cellW = size / (NX - 1);
+            const cellH = size / (NY - 1);
+
+            for (const level of levels) {
+                const paths = traceContourPaths(level);
+                if (paths.length === 0) continue;
+
+                ctx.strokeStyle = 'rgba(30, 30, 30, 0.7)';
+                ctx.lineWidth = 1.2;
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+
+                for (const path of paths) {
+                    if (path.length < 2) continue;
+                    ctx.beginPath();
+                    ctx.moveTo(path[0][0] * cellW, path[0][1] * cellH);
+                    for (let k = 1; k < path.length; k++) {
+                        ctx.lineTo(path[k][0] * cellW, path[k][1] * cellH);
+                    }
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function traceContourPaths(level) {
+            const paths = [];
+            const visited = new Uint8Array((NX - 1) * (NY - 1));
+
+            function getCell(ci, cj) {
+                return {
+                    v00: getValue(ci, cj),
+                    v10: getValue(ci + 1, cj),
+                    v01: getValue(ci, cj + 1),
+                    v11: getValue(ci + 1, cj + 1)
+                };
+            }
+
+            function cellCode(ci, cj) {
+                const c = getCell(ci, cj);
+                let code = 0;
+                if (c.v00 >= level) code |= 1;
+                if (c.v10 >= level) code |= 2;
+                if (c.v11 >= level) code |= 4;
+                if (c.v01 >= level) code |= 8;
+                return code;
+            }
+
+            function lerp(va, vb, pa, pb) {
+                if (Math.abs(vb - va) < 1e-12) return (pa + pb) / 2;
+                const t = (level - va) / (vb - va);
+                return pa + t * (pb - pa);
+            }
+
+            function getEdgePoint(ci, cj, edge) {
+                const c = getCell(ci, cj);
+                switch (edge) {
+                    case 0: return [lerp(c.v00, c.v10, ci, ci + 1), cj];
+                    case 1: return [ci + 1, lerp(c.v10, c.v11, cj, cj + 1)];
+                    case 2: return [lerp(c.v01, c.v11, ci, ci + 1), cj + 1];
+                    case 3: return [ci, lerp(c.v00, c.v01, cj, cj + 1)];
+                }
+            }
+
+            const edgeTable = {
+                1: [[3, 0]], 2: [[0, 1]], 3: [[3, 1]], 4: [[1, 2]],
+                5: [[3, 2], [1, 0]], 6: [[0, 2]], 7: [[3, 2]], 8: [[2, 3]],
+                9: [[2, 0]], 10: [[0, 3], [2, 1]], 11: [[2, 1]], 12: [[1, 3]],
+                13: [[1, 0]], 14: [[0, 3]]
+            };
+
+            for (let cj = 0; cj < NY - 1; cj++) {
+                for (let ci = 0; ci < NX - 1; ci++) {
+                    const idx = cj * (NX - 1) + ci;
+                    if (visited[idx]) continue;
+                    const code = cellCode(ci, cj);
+                    if (code === 0 || code === 15) continue;
+
+                    const edges = edgeTable[code];
+                    if (!edges) continue;
+
+                    for (const [startEdge, endEdge] of edges) {
+                        if (visited[idx] & (1 << startEdge)) continue;
+
+                        const path = [];
+                        let curCi = ci, curCj = cj, curEntry = startEdge;
+
+                        path.push(getEdgePoint(curCi, curCj, curEntry));
+
+                        let maxSteps = NX * NY * 2;
+                        while (maxSteps-- > 0) {
+                            const curIdx = curCj * (NX - 1) + curCi;
+                            const curCode = cellCode(curCi, curCj);
+                            const curEdges = edgeTable[curCode];
+                            if (!curEdges) break;
+
+                            let exitEdge = -1;
+                            for (const [se, ee] of curEdges) {
+                                if (se === curEntry) { exitEdge = ee; break; }
+                                if (ee === curEntry) { exitEdge = se; break; }
+                            }
+                            if (exitEdge === -1) break;
+
+                            visited[curIdx] |= (1 << curEntry) | (1 << exitEdge);
+                            path.push(getEdgePoint(curCi, curCj, exitEdge));
+
+                            let nextCi = curCi, nextCj = curCj, nextEntry = -1;
+                            if (exitEdge === 0) { nextCj = curCj - 1; nextEntry = 2; }
+                            else if (exitEdge === 1) { nextCi = curCi + 1; nextEntry = 3; }
+                            else if (exitEdge === 2) { nextCj = curCj + 1; nextEntry = 0; }
+                            else if (exitEdge === 3) { nextCi = curCi - 1; nextEntry = 1; }
+
+                            if (nextCi < 0 || nextCi >= NX - 1 || nextCj < 0 || nextCj >= NY - 1) break;
+                            if (nextCi === ci && nextCj === cj && nextEntry === startEdge) {
+                                path.push(path[0]);
+                                break;
+                            }
+
+                            curCi = nextCi;
+                            curCj = nextCj;
+                            curEntry = nextEntry;
+                        }
+
+                        if (path.length >= 2) paths.push(path);
+                    }
+                }
+            }
+            return paths;
+        }
+
+        function drawGrid(ctx, size) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 0.5;
+            const cellW = size / NX;
+            const cellH = size / NY;
+
+            for (let i = 0; i <= NX; i++) {
+                const x = i * cellW;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, size);
+                ctx.stroke();
+            }
+            for (let j = 0; j <= NY; j++) {
+                const y = j * cellH;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(size, y);
+                ctx.stroke();
+            }
+        }
+
+        function drawAxesTicks(ctx, plotSize, pad) {
+            const tickCount = 5;
+
+            ctx.fillStyle = '#8ab8e8';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            for (let i = 0; i <= tickCount; i++) {
+                const px = pad.left + (i / tickCount) * plotSize;
+                const val = useRealUnits
+                    ? xCoords[Math.round((i / tickCount) * (NX - 1))]
+                    : Math.round((i / tickCount) * (NX - 1));
+                const label = useRealUnits ? `${val}m` : `${val}`;
+
+                ctx.beginPath();
+                ctx.moveTo(px, pad.top + plotSize);
+                ctx.lineTo(px, pad.top + plotSize + 4);
+                ctx.strokeStyle = '#6a94c0';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                ctx.fillText(label, px, pad.top + plotSize + 6);
+            }
+
+            ctx.fillStyle = '#7a9dc0';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(useRealUnits ? 'X (m)' : 'X', pad.left + plotSize / 2, pad.top + plotSize + 22);
+
+            ctx.fillStyle = '#8ab8e8';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            for (let i = 0; i <= tickCount; i++) {
+                const py = pad.top + (i / tickCount) * plotSize;
+                const val = useRealUnits
+                    ? yCoords[Math.round((i / tickCount) * (NY - 1))]
+                    : Math.round((i / tickCount) * (NY - 1));
+                const label = useRealUnits ? `${val}m` : `${val}`;
+
+                ctx.beginPath();
+                ctx.moveTo(pad.left, py);
+                ctx.lineTo(pad.left - 4, py);
+                ctx.strokeStyle = '#6a94c0';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                ctx.fillText(label, pad.left - 7, py);
+            }
+
+            // Y axis label
+            ctx.save();
+            ctx.fillStyle = '#7a9dc0';
+            ctx.font = '12px sans-serif';
+            ctx.translate(12, pad.top + plotSize / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(useRealUnits ? 'Y (m)' : 'Y', 0, 0);
+            ctx.restore();
+        }
+
+        function updateColorbar() {
+            const cb = document.getElementById('colorbar');
+            const ctx = cb.getContext('2d');
+            const h = cb.height;
+            const w = cb.width;
+            for (let row = 0; row < h; row++) {
+                const t = 1 - row / (h - 1);
+                const [r, g, b] = colormaps[cmapName](t);
+                ctx.fillStyle = `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`;
+                ctx.fillRect(0, row, w, 1);
+            }
+
+            document.getElementById('cb-max').textContent = dataMax.toFixed(3);
+            document.getElementById('cb-mid').textContent = ((dataMin + dataMax) / 2).toFixed(3);
+            document.getElementById('cb-min').textContent = dataMin.toFixed(3);
+        }
+
+        function showUI() {
+            document.getElementById('file-overlay').style.display = 'none';
+            document.getElementById('controls').style.display = 'block';
+            document.getElementById('info').style.display = 'block';
+            document.getElementById('colorbar-container').style.display = 'flex';
+            document.getElementById('main-canvas').style.display = 'block';
+            document.getElementById('btn-back-index').style.display = 'inline-flex';
+        }
+
+        function setupTooltip() {
+            const canvas = document.getElementById('main-canvas');
+            const tooltip = document.getElementById('tooltip');
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (!dataLoaded) return;
+                const rect = canvas.getBoundingClientRect();
+                const mx = e.clientX - rect.left;
+                const my = e.clientY - rect.top;
+
+                const pad = showAxes ? PADDING : { top: 0, right: 0, bottom: 0, left: 0 };
+                const totalW = CANVAS_SIZE + pad.left + pad.right;
+                const totalH = CANVAS_SIZE + pad.top + pad.bottom;
+                const scaleX = rect.width / totalW;
+                const scaleY = rect.height / totalH;
+
+                const plotX = mx / scaleX - pad.left;
+                const plotY = my / scaleY - pad.top;
+
+                const fx = (plotX / CANVAS_SIZE) * (NX - 1);
+                const fy = (plotY / CANVAS_SIZE) * (NY - 1);
+
+                const ix = Math.round(fx);
+                const iy = Math.round(fy);
+
+                if (ix < 0 || ix >= NX || iy < 0 || iy >= NY) {
+                    tooltip.style.display = 'none';
+                    return;
+                }
+
+                const val = getValue(ix, iy);
+                const xLabel = useRealUnits ? `${xCoords[ix]}m` : `${ix}`;
+                const yLabel = useRealUnits ? `${yCoords[iy]}m` : `${iy}`;
+
+                tooltip.innerHTML = `X: ${xLabel}, Y: ${yLabel}<br>重力值: ${val.toFixed(6)}`;
+                tooltip.style.display = 'block';
+                tooltip.style.left = (e.clientX + 14) + 'px';
+                tooltip.style.top = (e.clientY - 30) + 'px';
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                tooltip.style.display = 'none';
+            });
+        }
+
+        // === Folder & file selection ===
+        async function openFolder() {
+            try {
+                folderHandle = await window.showDirectoryPicker();
+                document.getElementById('path-display').textContent = folderHandle.name;
+                await listFiles();
+            } catch (e) { }
+        }
+
+        async function listFiles() {
+            fileHandles = [];
+            const listEl = document.getElementById('file-list');
+            listEl.innerHTML = '';
+
+            for await (const entry of folderHandle.values()) {
+                if (entry.kind === 'file' && entry.name.endsWith('.txt')) {
+                    fileHandles.push(entry);
+                }
+            }
+
+            fileHandles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+
+            if (fileHandles.length === 0) {
+                listEl.innerHTML = '<div id="file-hint"><span class="big-icon">⚠️</span>该文件夹中没有 .txt 文件</div>';
+                return;
+            }
+
+            let html = '<table class="file-table"><thead><tr><th>文件名</th><th>大小</th><th>修改时间</th></tr></thead><tbody>';
+            for (const fh of fileHandles) {
+                const file = await fh.getFile();
+                const sizeKB = (file.size / 1024).toFixed(1);
+                const date = new Date(file.lastModified);
+                const dateStr = date.toLocaleDateString('zh-CN') + ' ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                html += `<tr class="file-row" data-name="${fh.name}">
+                    <td><div class="fname"><span class="icon">📄</span>${fh.name}</div></td>
+                    <td class="fsize">${sizeKB} KB</td>
+                    <td class="fdate">${dateStr}</td>
+                </tr>`;
+            }
+            html += '</tbody></table>';
+            listEl.innerHTML = html;
+
+            listEl.querySelectorAll('.file-row').forEach(row => {
+                row.onclick = () => {
+                    const name = row.getAttribute('data-name');
+                    const fh = fileHandles.find(f => f.name === name);
+                    if (fh) loadFileHandle(fh);
+                };
+            });
+        }
+
+        async function loadFileHandle(fh) {
+            const file = await fh.getFile();
+            const text = await file.text();
+            parseData(text, fh.name);
+        }
+
+        function setupControls() {
+            document.getElementById('folder-btn').onclick = openFolder;
+
+            // 在覆盖层上拖放
+            const overlay = document.getElementById('file-overlay');
+            let dragCounter = 0;
+
+            overlay.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                dragCounter++;
+                overlay.classList.add('drag-over');
+            });
+            overlay.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+            });
+            overlay.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dragCounter--;
+                if (dragCounter <= 0) { dragCounter = 0; overlay.classList.remove('drag-over'); }
+            });
+            overlay.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dragCounter = 0;
+                overlay.classList.remove('drag-over');
+                const files = [...e.dataTransfer.files].filter(f => f.name.endsWith('.txt'));
+                if (files.length > 0) {
+                    files[0].text().then(text => parseData(text, files[0].name));
+                }
+            });
+
+            const container = document.getElementById('container');
+            let globalDragCounter = 0;
+
+            container.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                globalDragCounter++;
+                container.classList.add('drag-over-global');
+            });
+            container.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+            });
+            container.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                globalDragCounter--;
+                if (globalDragCounter <= 0) { globalDragCounter = 0; container.classList.remove('drag-over-global'); }
+            });
+            container.addEventListener('drop', (e) => {
+                e.preventDefault();
+                globalDragCounter = 0;
+                container.classList.remove('drag-over-global');
+                const files = [...e.dataTransfer.files].filter(f => f.name.endsWith('.txt'));
+                if (files.length > 0) {
+                    files[0].text().then(text => parseData(text, files[0].name));
+                }
+            });
+
+            document.getElementById('colormap').onchange = (e) => {
+                cmapName = e.target.value;
+                updateColorbar();
+                drawField();
+            };
+
+            document.getElementById('interp-mode').onchange = (e) => {
+                interpMode = e.target.value;
+                drawField();
+            };
+
+            document.getElementById('btn-grid').onclick = (e) => {
+                showGrid = !showGrid;
+                e.target.classList.toggle('active', showGrid);
+                e.target.textContent = showGrid ? '开' : '关';
+                drawField();
+            };
+
+            document.getElementById('btn-contour').onclick = (e) => {
+                showContour = !showContour;
+                e.target.classList.toggle('active', showContour);
+                e.target.textContent = showContour ? '开' : '关';
+                document.getElementById('contour-level-group').style.display = showContour ? 'block' : 'none';
+                drawField();
+            };
+
+            document.getElementById('slider-contour').oninput = (e) => {
+                contourLevels = parseInt(e.target.value);
+                document.getElementById('val-contour').textContent = contourLevels;
+                drawField();
+            };
+
+            document.getElementById('btn-real-units').onclick = (e) => {
+                useRealUnits = !useRealUnits;
+                e.target.classList.toggle('active', useRealUnits);
+                e.target.textContent = useRealUnits ? '开' : '关';
+                updateInfoBar();
+                drawField();
+            };
+
+            document.getElementById('btn-axes').onclick = (e) => {
+                showAxes = !showAxes;
+                e.target.classList.toggle('active', showAxes);
+                e.target.textContent = showAxes ? '开' : '关';
+                drawField();
+            };
+
+            document.getElementById('btn-reload').onclick = () => {
+                document.getElementById('file-overlay').style.display = 'flex';
+                document.getElementById('controls').style.display = 'none';
+                document.getElementById('info').style.display = 'none';
+                document.getElementById('colorbar-container').style.display = 'none';
+                document.getElementById('main-canvas').style.display = 'none';
+                document.getElementById('btn-back-index').style.display = 'none';
+                if (folderHandle) listFiles();
+            };
+
+            document.getElementById('btn-export').onclick = () => {
+                const canvas = document.getElementById('main-canvas');
+                const link = document.createElement('a');
+                const filename = document.getElementById('current-file').textContent || 'gravity2d';
+                link.download = filename.replace(/\.txt$/i, '') + '_gravity.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            };
+        }
+
+        function resizeCanvas() {
+            const canvas = document.getElementById('main-canvas');
+            const maxSize = Math.min(window.innerHeight - 80, window.innerWidth - 380);
+            const size = Math.max(400, Math.min(maxSize, 700));
+            canvas.style.width = size + 'px';
+            canvas.style.height = size + 'px';
+            canvas.style.marginLeft = '70px';
+            canvas.style.marginTop = '20px';
+        }
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+        });
+
+        // === Comparison Mode ===
+        let compareDataA = null;
+        let compareDataB = null;
+        let compareNameA = '';
+        let compareNameB = '';
+
+        function parseGravityFromText(text) {
+            const lines = text.trim().split(/\r?\n/);
+            const data = new Float32Array(NX * NY);
+            for (let i = 0; i < Math.min(lines.length, NX * NY); i++) {
+                const parts = lines[i].trim().split(/\s+/);
+                if (parts.length >= 4) {
+                    const val = parseFloat(parts[3]);
+                    if (!isNaN(val)) data[i] = val;
+                }
+            }
+            return data;
+        }
+
+        function drawCompareCanvas(canvasId, data) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            const size = 400;
+            canvas.width = size;
+            canvas.height = size;
+
+            let minVal = Infinity, maxVal = -Infinity;
+            for (let i = 0; i < data.length; i++) {
+                if (data[i] < minVal) minVal = data[i];
+                if (data[i] > maxVal) maxVal = data[i];
+            }
+
+            const imgData = ctx.createImageData(size, size);
+            for (let py = 0; py < size; py++) {
+                for (let px = 0; px < size; px++) {
+                    const fx = (px / size) * (NX - 1);
+                    const fy = (py / size) * (NY - 1);
+                    const ix = Math.floor(fx);
+                    const iy = Math.floor(fy);
+                    const dx = fx - ix;
+                    const dy = fy - iy;
+
+                    const g = (i, j) => {
+                        if (i >= NX) i = NX - 1;
+                        if (j >= NY) j = NY - 1;
+                        return data[j * NX + i];
+                    };
+                    const val = g(ix, iy) * (1 - dx) * (1 - dy) + g(ix + 1, iy) * dx * (1 - dy) +
+                                g(ix, iy + 1) * (1 - dx) * dy + g(ix + 1, iy + 1) * dx * dy;
+
+                    let t = (maxVal > minVal) ? (val - minVal) / (maxVal - minVal) : 0.5;
+                    t = Math.max(0, Math.min(1, t));
+                    const [r, g2, b] = colormaps[cmapName](t);
+                    const idx = (py * size + px) * 4;
+                    imgData.data[idx] = Math.round(r * 255);
+                    imgData.data[idx + 1] = Math.round(g2 * 255);
+                    imgData.data[idx + 2] = Math.round(b * 255);
+                    imgData.data[idx + 3] = 255;
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+
+            canvas.style.display = 'block';
+            return { min: minVal, max: maxVal };
+        }
+
+        function drawResidualCanvas() {
+            if (!compareDataA || !compareDataB) return;
+
+            const residual = new Float32Array(NX * NY);
+            for (let i = 0; i < NX * NY; i++) {
+                residual[i] = compareDataA[i] - compareDataB[i];
+            }
+
+            const canvas = document.getElementById('canvas-c');
+            const ctx = canvas.getContext('2d');
+            const size = 400;
+            canvas.width = size;
+            canvas.height = size;
+
+            let minVal = Infinity, maxVal = -Infinity;
+            for (let i = 0; i < residual.length; i++) {
+                if (residual[i] < minVal) minVal = residual[i];
+                if (residual[i] > maxVal) maxVal = residual[i];
+            }
+
+            const absMax = Math.max(Math.abs(minVal), Math.abs(maxVal));
+            const symMin = -absMax;
+            const symMax = absMax;
+
+            const imgData = ctx.createImageData(size, size);
+            for (let py = 0; py < size; py++) {
+                for (let px = 0; px < size; px++) {
+                    const fx = (px / size) * (NX - 1);
+                    const fy = (py / size) * (NY - 1);
+                    const ix = Math.floor(fx);
+                    const iy = Math.floor(fy);
+                    const dx = fx - ix;
+                    const dy = fy - iy;
+
+                    const g = (i, j) => {
+                        if (i >= NX) i = NX - 1;
+                        if (j >= NY) j = NY - 1;
+                        return residual[j * NX + i];
+                    };
+                    const val = g(ix, iy) * (1 - dx) * (1 - dy) + g(ix + 1, iy) * dx * (1 - dy) +
+                                g(ix, iy + 1) * (1 - dx) * dy + g(ix + 1, iy + 1) * dx * dy;
+
+                    let t = (symMax > symMin) ? (val - symMin) / (symMax - symMin) : 0.5;
+                    t = Math.max(0, Math.min(1, t));
+                    const [r, g2, b] = colormaps.bwr(t);
+                    const idx = (py * size + px) * 4;
+                    imgData.data[idx] = Math.round(r * 255);
+                    imgData.data[idx + 1] = Math.round(g2 * 255);
+                    imgData.data[idx + 2] = Math.round(b * 255);
+                    imgData.data[idx + 3] = 255;
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+            canvas.style.display = 'block';
+            document.getElementById('placeholder-c').style.display = 'none';
+            document.getElementById('result-c').classList.add('loaded');
+            document.getElementById('fname-c').textContent = `残差范围: [${minVal.toFixed(4)}, ${maxVal.toFixed(4)}]`;
+
+            // Colorbar
+            const cb = document.getElementById('compare-cb');
+            const cbCtx = cb.getContext('2d');
+            for (let px = 0; px < 600; px++) {
+                const t = px / 599;
+                const [r, g2, b] = colormaps.bwr(t);
+                cbCtx.fillStyle = `rgb(${Math.round(r * 255)},${Math.round(g2 * 255)},${Math.round(b * 255)})`;
+                cbCtx.fillRect(px, 0, 1, 14);
+            }
+            document.getElementById('compare-cb-min').textContent = symMin.toFixed(4);
+            document.getElementById('compare-cb-mid').textContent = '0';
+            document.getElementById('compare-cb-max').textContent = symMax.toFixed(4);
+
+            document.getElementById('compare-info').textContent =
+                `A: ${compareNameA} | B: ${compareNameB} | 残差绝对值最大: ${absMax.toFixed(6)}`;
+        }
+
+        function setupCompareDrop(dropId, slot) {
+            const dropEl = document.getElementById(dropId);
+            let counter = 0;
+
+            dropEl.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                counter++;
+                dropEl.classList.add('drag-over');
+            });
+            dropEl.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'copy';
+            });
+            dropEl.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                counter--;
+                if (counter <= 0) { counter = 0; dropEl.classList.remove('drag-over'); }
+            });
+            dropEl.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                counter = 0;
+                dropEl.classList.remove('drag-over');
+                const files = [...e.dataTransfer.files].filter(f => f.name.endsWith('.txt'));
+                if (files.length === 0) return;
+                const file = files[0];
+                file.text().then(text => {
+                    const data = parseGravityFromText(text);
+                    if (slot === 'a') {
+                        compareDataA = data;
+                        compareNameA = file.name;
+                        drawCompareCanvas('canvas-a', data);
+                        document.getElementById('placeholder-a').style.display = 'none';
+                        document.getElementById('drop-a').classList.add('loaded');
+                        document.getElementById('fname-a').textContent = file.name;
+                    } else {
+                        compareDataB = data;
+                        compareNameB = file.name;
+                        drawCompareCanvas('canvas-b', data);
+                        document.getElementById('placeholder-b').style.display = 'none';
+                        document.getElementById('drop-b').classList.add('loaded');
+                        document.getElementById('fname-b').textContent = file.name;
+                    }
+                    if (compareDataA && compareDataB) {
+                        drawResidualCanvas();
+                    }
+                });
+            });
+        }
+
+        function enterCompareMode() {
+            document.getElementById('compare-panel').style.display = 'flex';
+            document.getElementById('controls').style.display = 'none';
+            document.getElementById('info').style.display = 'none';
+            document.getElementById('colorbar-container').style.display = 'none';
+            document.getElementById('main-canvas').style.display = 'none';
+        }
+
+        function exitCompareMode() {
+            document.getElementById('compare-panel').style.display = 'none';
+            if (dataLoaded) {
+                document.getElementById('controls').style.display = 'block';
+                document.getElementById('info').style.display = 'block';
+                document.getElementById('colorbar-container').style.display = 'flex';
+                document.getElementById('main-canvas').style.display = 'block';
+            } else {
+                document.getElementById('file-overlay').style.display = 'flex';
+            }
+        }
+
+        function setupCompare() {
+            document.getElementById('btn-compare').onclick = enterCompareMode;
+            document.getElementById('btn-compare-back').onclick = exitCompareMode;
+            setupCompareDrop('drop-a', 'a');
+            setupCompareDrop('drop-b', 'b');
+        }
+
+        // === 3D Mode State ===
+        let mode3D = false;
+        let animId = null;
+        let azimuth = 0;
+        let elevation3D = 65 * Math.PI / 180;
+        let rotSpeed = 0.2;
+        let zScaleFactor = 1.7;
+        let rotating = true;
+        let lastTime = 0;
+        let dragging3D = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let dragStartAzimuth = 0;
+        let dragStartElevation = 0;
+
+        function project3D(x, y, z, theta, phi, d, fov, W, H) {
+            const cosT = Math.cos(theta), sinT = Math.sin(theta);
+            const cosP = Math.cos(phi), sinP = Math.sin(phi);
+            let rx = x * cosT - y * sinT;
+            let ry = x * sinT + y * cosT;
+            let rz = z;
+            let rx2 = rx;
+            let ry2 = ry * cosP - rz * sinP;
+            let rz2 = ry * sinP + rz * cosP;
+            let viewZ = rz2 + d;
+            if (viewZ < 0.1) viewZ = 0.1;
+            let scale = fov / viewZ;
+            let sx = rx2 * scale + W / 2;
+            let sy = -ry2 * scale + H / 2;
+            return [sx, sy, viewZ];
+        }
+
+        function render3DFrame(ctx, W, H, theta) {
+            const phi = elevation3D;
+            const d = 60;
+            const fov = 500;
+            const cx = (NX - 1) / 2;
+            const cy = (NY - 1) / 2;
+            const zHeight = 15 * zScaleFactor;
+            const zMid = zHeight * 0.5;
+
+            ctx.fillStyle = '#0f1021';
+            ctx.fillRect(0, 0, W, H);
+
+            const projected = new Array(NX * NY);
+            for (let iy = 0; iy < NY; iy++) {
+                for (let ix = 0; ix < NX; ix++) {
+                    const idx = iy * NX + ix;
+                    const t = (dataMax > dataMin) ? (gravityData[idx] - dataMin) / (dataMax - dataMin) : 0.5;
+                    const wz = t * zHeight - zMid;
+                    const [sx, sy, depth] = project3D(ix - cx, iy - cy, wz, theta, phi, d, fov, W, H);
+                    projected[idx] = { sx, sy, depth, t };
+                }
+            }
+
+            const quads = [];
+            for (let iy = 0; iy < NY - 1; iy++) {
+                for (let ix = 0; ix < NX - 1; ix++) {
+                    const i00 = iy * NX + ix;
+                    const i10 = i00 + 1;
+                    const i01 = i00 + NX;
+                    const i11 = i01 + 1;
+                    const avgDepth = (projected[i00].depth + projected[i10].depth +
+                                      projected[i01].depth + projected[i11].depth) / 4;
+                    const avgT = (projected[i00].t + projected[i10].t +
+                                  projected[i01].t + projected[i11].t) / 4;
+                    quads.push({ i00, i10, i11, i01, depth: avgDepth, t: avgT });
+                }
+            }
+            quads.sort((a, b) => b.depth - a.depth);
+
+            for (const q of quads) {
+                const p0 = projected[q.i00], p1 = projected[q.i10];
+                const p2 = projected[q.i11], p3 = projected[q.i01];
+                const [r, g, b] = colormaps[cmapName](q.t);
+                const brightness = 0.7 + 0.3 * (1 - (q.depth - 30) / 60);
+                const br = Math.min(255, (r * 255 * brightness) | 0);
+                const bg = Math.min(255, (g * 255 * brightness) | 0);
+                const bb = Math.min(255, (b * 255 * brightness) | 0);
+                ctx.fillStyle = `rgb(${br},${bg},${bb})`;
+                ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+                ctx.lineWidth = 0.5;
+                ctx.beginPath();
+                ctx.moveTo(p0.sx, p0.sy);
+                ctx.lineTo(p1.sx, p1.sy);
+                ctx.lineTo(p2.sx, p2.sy);
+                ctx.lineTo(p3.sx, p3.sy);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = '#8cc4ff';
+            ctx.font = '13px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('3D 重力场曲面', W / 2, H - 12);
+        }
+
+        function animate3D(timestamp) {
+            if (!mode3D) return;
+            if (rotating) {
+                const dt = lastTime ? (timestamp - lastTime) / 1000 : 0.016;
+                azimuth += rotSpeed * dt;
+                if (azimuth > Math.PI * 2) azimuth -= Math.PI * 2;
+            }
+            lastTime = timestamp;
+
+            const canvas = document.getElementById('main-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = CANVAS_SIZE;
+            canvas.height = CANVAS_SIZE;
+            render3DFrame(ctx, CANVAS_SIZE, CANVAS_SIZE, azimuth);
+            animId = requestAnimationFrame(animate3D);
+        }
+
+        function enter3DMode() {
+            if (!dataLoaded) return;
+            mode3D = true;
+            rotating = true;
+            lastTime = 0;
+
+            document.getElementById('view3d-group').style.display = 'block';
+            document.getElementById('colorbar-container').style.display = 'none';
+            document.getElementById('info').style.display = 'none';
+            document.getElementById('btn-3d-toggle').textContent = '暂停旋转';
+            document.getElementById('btn-3d-toggle').classList.add('active');
+
+            const canvas = document.getElementById('main-canvas');
+            canvas.style.display = 'block';
+            animId = requestAnimationFrame(animate3D);
+        }
+
+        function exit3DMode() {
+            mode3D = false;
+            if (animId) {
+                cancelAnimationFrame(animId);
+                animId = null;
+            }
+            document.getElementById('view3d-group').style.display = 'none';
+            document.getElementById('colorbar-container').style.display = 'flex';
+            document.getElementById('info').style.display = 'block';
+            drawField();
+        }
+
+        function setup3DControls() {
+            document.getElementById('btn-3d').onclick = enter3DMode;
+            document.getElementById('btn-3d-back').onclick = exit3DMode;
+
+            document.getElementById('btn-3d-toggle').onclick = (e) => {
+                rotating = !rotating;
+                lastTime = 0;
+                e.target.textContent = rotating ? '暂停旋转' : '恢复自动旋转';
+                e.target.classList.toggle('active', rotating);
+            };
+
+            document.getElementById('slider-speed').oninput = (e) => {
+                rotSpeed = parseFloat(e.target.value);
+                document.getElementById('val-speed').textContent = rotSpeed.toFixed(1);
+            };
+
+            document.getElementById('slider-elevation').oninput = (e) => {
+                const deg = parseInt(e.target.value);
+                elevation3D = deg * Math.PI / 180;
+                document.getElementById('val-elevation').textContent = deg;
+            };
+
+            document.getElementById('slider-zscale').oninput = (e) => {
+                zScaleFactor = parseFloat(e.target.value);
+                document.getElementById('val-zscale').textContent = zScaleFactor.toFixed(1);
+            };
+
+            const canvas = document.getElementById('main-canvas');
+
+            canvas.addEventListener('mousedown', (e) => {
+                if (!mode3D) return;
+                dragging3D = true;
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                dragStartAzimuth = azimuth;
+                dragStartElevation = elevation3D;
+                if (rotating) {
+                    rotating = false;
+                    lastTime = 0;
+                    const btn = document.getElementById('btn-3d-toggle');
+                    btn.textContent = '恢复自动旋转';
+                    btn.classList.remove('active');
+                }
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!dragging3D) return;
+                const dx = e.clientX - dragStartX;
+                const dy = e.clientY - dragStartY;
+                azimuth = dragStartAzimuth + dx * 0.01;
+                elevation3D = Math.max(5 * Math.PI / 180, Math.min(80 * Math.PI / 180, dragStartElevation - dy * 0.01));
+                const deg = Math.round(elevation3D * 180 / Math.PI);
+                document.getElementById('val-elevation').textContent = deg;
+                document.getElementById('slider-elevation').value = deg;
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (!dragging3D) return;
+                dragging3D = false;
+                rotating = true;
+                lastTime = 0;
+                const btn = document.getElementById('btn-3d-toggle');
+                btn.textContent = '暂停旋转';
+                btn.classList.add('active');
+            });
+        }
+
+        setupControls();
+        setupTooltip();
+        setupCompare();
+        setup3DControls();
+        resizeCanvas();
+    </script>
+</body>
+
+</html>
