@@ -23,47 +23,31 @@
             justify-content: center;
         }
 
-        /* Animated background */
         .bg-stars {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            inset: 0;
             pointer-events: none;
             z-index: 0;
         }
 
         .bg-stars .star {
             position: absolute;
-            width: 2px;
-            height: 2px;
             background: #fff;
             border-radius: 50%;
             opacity: 0;
-            animation: twinkle var(--duration) ease-in-out infinite;
-            animation-delay: var(--delay);
-            transition: opacity 0.3s, transform 0.3s, box-shadow 0.3s;
+            animation: twinkle var(--duration) ease-in-out var(--delay) infinite;
+            transition: opacity 0.4s, transform 0.4s, box-shadow 0.4s, background 0.4s;
+            will-change: opacity, transform;
         }
 
         @keyframes twinkle {
-
-            0%,
-            100% {
-                opacity: 0;
-            }
-
-            50% {
-                opacity: var(--max-opacity);
-            }
+            0%, 100% { opacity: 0; }
+            50% { opacity: var(--max-opacity); }
         }
 
         .bg-gradient {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            inset: 0;
             background:
                 radial-gradient(ellipse at 20% 50%, rgba(30, 60, 140, 0.15) 0%, transparent 60%),
                 radial-gradient(ellipse at 80% 50%, rgba(80, 40, 160, 0.1) 0%, transparent 60%),
@@ -72,7 +56,6 @@
             z-index: 0;
         }
 
-        /* Content */
         .content {
             position: relative;
             z-index: 1;
@@ -92,15 +75,8 @@
         }
 
         @keyframes titleFloat {
-
-            0%,
-            100% {
-                transform: translateY(0);
-            }
-
-            50% {
-                transform: translateY(-6px);
-            }
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
         }
 
         .subtitle {
@@ -110,7 +86,6 @@
             letter-spacing: 1px;
         }
 
-        /* Cards */
         .cards {
             display: flex;
             gap: 40px;
@@ -136,10 +111,7 @@
         .card::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            inset: 0;
             border-radius: 20px;
             background: linear-gradient(135deg, transparent 0%, rgba(80, 140, 255, 0.05) 100%);
             opacity: 0;
@@ -154,7 +126,6 @@
             width: 200%;
             height: 200%;
             background: conic-gradient(from 0deg, transparent 0%, rgba(100, 160, 255, 0.08) 25%, transparent 50%);
-            animation: none;
             opacity: 0;
             transition: opacity 0.5s;
         }
@@ -168,9 +139,7 @@
                 inset 0 1px 0 rgba(255, 255, 255, 0.05);
         }
 
-        .card:hover::before {
-            opacity: 1;
-        }
+        .card:hover::before { opacity: 1; }
 
         .card:hover::after {
             opacity: 1;
@@ -178,13 +147,8 @@
         }
 
         @keyframes cardGlow {
-            from {
-                transform: rotate(0deg);
-            }
-
-            to {
-                transform: rotate(360deg);
-            }
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
 
         .card:active {
@@ -211,9 +175,7 @@
             transition: color 0.3s;
         }
 
-        .card:hover .card-title {
-            color: #fff;
-        }
+        .card:hover .card-title { color: #fff; }
 
         .card-desc {
             font-size: 13px;
@@ -222,9 +184,7 @@
             transition: color 0.3s;
         }
 
-        .card:hover .card-desc {
-            color: #8ab0d8;
-        }
+        .card:hover .card-desc { color: #8ab0d8; }
 
         .card-arrow {
             position: absolute;
@@ -241,7 +201,6 @@
             transform: translateX(0);
         }
 
-        /* Footer */
         .footer {
             position: fixed;
             bottom: 20px;
@@ -252,6 +211,15 @@
             color: #3a5070;
             z-index: 1;
             letter-spacing: 0.5px;
+        }
+
+        .footer a {
+            color: #3a5070;
+            text-decoration: underline;
+        }
+
+        .footer a:hover {
+            color: #6a9cc0;
         }
     </style>
 </head>
@@ -291,73 +259,75 @@
 
     <div class="footer">
         <span>Geophysics Visualization Toolkit！Powered by KarryLiu / Kerui Liu(诗岸梦行舟)</span>
-        <br />
-        <a href="https://github.com/735690757/GreatGravityPainter" style="color: #3a5070; text-decoration: underline;"
-            target="_blank">GitHub</a> |
-        <a href="https://735690757.github.io/" style="color: #3a5070; text-decoration: underline;"
-            target="_blank">诗岸梦行舟的 Blog</a>
+        <br>
+        <a href="https://github.com/735690757/GreatGravityPainter" target="_blank">GitHub</a> |
+        <a href="https://735690757.github.io/" target="_blank">诗岸梦行舟的 Blog</a>
     </div>
 
     <script>
-        const starsContainer = document.getElementById('stars');
-        const starCount = 200;
-        const stars = [];
+        (() => {
+            const container = document.getElementById('stars');
+            const STAR_COUNT = 200;
+            const RADIUS = 24;
+            const stars = [];
+            let mouseX = -1000, mouseY = -1000;
 
-        for (let i = 0; i < starCount; i++) {
-            const star = document.createElement('div');
-            star.className = 'star';
-            const x = Math.random() * 100;
-            const y = Math.random() * 100;
-            star.style.left = x + '%';
-            star.style.top = y + '%';
-            const baseSize = 1.5 + Math.random() * 2.5;
-            star.style.width = baseSize + 'px';
-            star.style.height = baseSize + 'px';
-            star.style.setProperty('--duration', (2 + Math.random() * 4) + 's');
-            star.style.setProperty('--delay', (Math.random() * 4) + 's');
-            star.style.setProperty('--max-opacity', (0.2 + Math.random() * 0.4).toString());
-            stars.push({ el: star, x, y, threshold: 0.5 + Math.random() * 0.5 });
-            starsContainer.appendChild(star);
-        }
-
-        let mouseX = -1000, mouseY = -1000;
-        const RADIUS = 24;
-
-        document.addEventListener('mousemove', (e) => {
-            mouseX = (e.clientX / window.innerWidth) * 100;
-            mouseY = (e.clientY / window.innerHeight) * 100;
-        });
-
-        document.addEventListener('mouseleave', () => {
-            mouseX = -1000;
-            mouseY = -1000;
-        });
-
-        function updateStars() {
-            for (const s of stars) {
-                const dx = s.x - mouseX;
-                const dy = s.y - mouseY;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                const norm = dist / RADIUS;
-
-                if (norm < s.threshold) {
-                    const intensity = 1 - norm / s.threshold;
-                    const glow = 0.85 + intensity * 0.15;
-                    const scale = 1 + intensity * 2.5;
-                    s.el.style.opacity = glow;
-                    s.el.style.transform = `scale(${scale})`;
-                    s.el.style.boxShadow = `0 0 ${Math.round(intensity * 12)}px ${Math.round(intensity * 4)}px rgba(160,210,255,${(intensity * 0.9).toFixed(2)})`;
-                    s.el.style.background = `rgba(200,230,255,${(0.8 + intensity * 0.2).toFixed(2)})`;
-                } else {
-                    s.el.style.opacity = '';
-                    s.el.style.transform = '';
-                    s.el.style.boxShadow = '';
-                    s.el.style.background = '';
-                }
+            for (let i = 0; i < STAR_COUNT; i++) {
+                const el = document.createElement('div');
+                el.className = 'star';
+                const x = Math.random() * 100;
+                const y = Math.random() * 100;
+                const size = 1.5 + Math.random() * 2.5;
+                Object.assign(el.style, {
+                    left: x + '%',
+                    top: y + '%',
+                    width: size + 'px',
+                    height: size + 'px',
+                });
+                el.style.setProperty('--duration', (2 + Math.random() * 4) + 's');
+                el.style.setProperty('--delay', (Math.random() * 4) + 's');
+                el.style.setProperty('--max-opacity', (0.2 + Math.random() * 0.4).toFixed(2));
+                stars.push({ el, x, y, threshold: 0.5 + Math.random() * 0.5, active: false });
+                container.appendChild(el);
             }
-            requestAnimationFrame(updateStars);
-        }
-        requestAnimationFrame(updateStars);
+
+            document.addEventListener('mousemove', (e) => {
+                mouseX = (e.clientX / window.innerWidth) * 100;
+                mouseY = (e.clientY / window.innerHeight) * 100;
+            });
+
+            document.addEventListener('mouseleave', () => {
+                mouseX = -1000;
+                mouseY = -1000;
+            });
+
+            function update() {
+                for (const s of stars) {
+                    const dx = s.x - mouseX;
+                    const dy = s.y - mouseY;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const norm = dist / RADIUS;
+                    const hit = norm < s.threshold;
+
+                    if (hit) {
+                        const t = 1 - norm / s.threshold;
+                        s.el.style.opacity = (0.85 + t * 0.15).toFixed(2);
+                        s.el.style.transform = `scale(${(1 + t * 2.5).toFixed(2)})`;
+                        s.el.style.boxShadow = `0 0 ${(t * 12)|0}px ${(t * 4)|0}px rgba(160,210,255,${(t * 0.9).toFixed(2)})`;
+                        s.el.style.background = `rgba(200,230,255,${(0.8 + t * 0.2).toFixed(2)})`;
+                        s.active = true;
+                    } else if (s.active) {
+                        s.el.style.opacity = '';
+                        s.el.style.transform = '';
+                        s.el.style.boxShadow = '';
+                        s.el.style.background = '';
+                        s.active = false;
+                    }
+                }
+                requestAnimationFrame(update);
+            }
+            requestAnimationFrame(update);
+        })();
     </script>
 </body>
 
